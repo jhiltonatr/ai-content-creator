@@ -1,21 +1,8 @@
-# Backend (Maven)
-api/target/
-
-# Frontend (Node)
-node_modules/
-dist/
+# Build outputs / runtime data
+backend/target/
+backend/data/
+data/
 ui/node_modules/
 ui/dist/
-
-# Editors / IDEs
-.idea/
-*.iml
-.vscode/
-*.swp
-
-# OS
+*.local
 .DS_Store
-Thumbs.db
-
-# Logs
-*.log

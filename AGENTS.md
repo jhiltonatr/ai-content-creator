@@ -1,29 +1,143 @@
-# AI Content Creator
+# AGENTS.md — Creative Writing Support App
 
-An application for writing and entertainment: an editor UI for stories of different types (novels, RPG-like stories, and more).
+Project conventions and domain context to keep sessions focused. This is a greenfield project; repo currently has no commits.
 
-## Components
+## Vision
 
-- `api/` — Spring Boot REST backend (Maven). Layers: `domain` → `storage` → `web`. Storage is abstracted behind repository interfaces with an in-memory implementation, so a real database can be swapped in later without touching application code.
-- `ui/` — React frontend (TypeScript, Vite). Dev server proxies `/api` to the backend at `http://localhost:8080`.
+An application that supports writers across different story forms and languages. The **Story** is the main concept; within a story, smaller units (books, chapters, quests, scenes) may each use their own language, and translations are a future concern.
 
-## Versions
+Supported story types:
+- **Novel** — single series of Books/Chapters with a straight storyline.
+- **RPG-like game** — Lore as overall context + a Main Story + multiple storylines/subquests (branching).
+- **TV/Movie Script** — conversation-based; multiple characters talk.
+- Others may be added later (interactive fiction, podcast script, ...). Design must stay extensible.
 
-- Java: 25 (Microsoft OpenJDK 25.0.4.1 — not on PATH; set `JAVA_HOME` to `C:\Users\jhilt\.jdks\ms-25.0.4.1`)
-- Spring Boot: 4.1.1
-- React: 19.2.8
-- Vite: 8.3.0
+## Terminology (use consistently)
 
-## Build & run
+- **Story** — the top-level container for a creative work (the "main concept").
+- **Node** — the universal narrative unit (book, chapter, episode, act, scene, quest, beat, step). Every node is the same generic entity; its `nodeType` labels what it is.
+- **Archetype** — config that defines how a given story type uses nodes: allowed node types, nesting rules, required sections, rendering profile. *There is one archetype per story type; adding a story type = adding a config, not new database code.*
+- **Script block** — the structured content of a script node: scene heading, action lines, dialogue beats (character + parenthetical + line).
+- **Lore** — knowledge/encyclopedia content forming overall context (esp. for RPG).
+- **Link** — a typed relation between any two entities (node↔node, node↔character, etc.).
+- **User** — an account that can hold memberships in stories.
+- **Member** — a User attached to a Story with a role → permissions.
+- **Owner/Creator** — manages the story (settings, members, publishing, delete).
+- **Collaborator** — writes/edits content within the story (team of creators on one story).
+- **Editor** — draft read + feedback access (proofreading); cannot edit content.
+- **Viewer/Follower** — read-only access to published content; never drafts.
+- **Release** — a versioned publish snapshot listing which nodes are public.
 
-```powershell
-$env:JAVA_HOME = "C:\Users\jhilt\.jdks\ms-25.0.4.1"
-mvn -f api/pom.xml verify
-mvn -f api/pom.xml spring-boot:run   # API on http://localhost:8080
+## Architecture
+
+```
+Web UI --> Gateway/BFF
+             |--> Story Core Service (Java/Spring Boot)  --> PostgreSQL (JSONB)
+             |--> AI & Enrichment Service (Python/FastAPI) --> LLM providers
+                      \_ reads Core via API; event bus so Core can publish
+                         content-changed events that AI reacts to
 ```
 
-```powershell
-cd ui
-npm install
-npm run dev                          # UI on http://localhost:5173
+- **Story Core Service** (Java) owns ALL persistence and graph queries. REST/gRPC.
+- **AI & Enrichment Service** (Python) handles LLM integrations (suggestions, continuity checks, summaries, later translation). It is **read + suggest only** — it never directly mutates author content; suggestions are persisted as separate records by Core.
+- Search (e.g. Elasticsearch) is a later/optional concern.
+- Storage: PostgreSQL; rich text and structured blocks as JSONB.
+
+## Core data model (v0 proposal)
+
 ```
+Story
+  id, title, storyType (novel | rpg | script — extensible), defaultLanguage,
+  synopsis, settings (json)
+
+Node
+  id, storyId, parentId (tree nesting), nodeType, title, sortOrder,
+  language?   // overrides Story.defaultLanguage for that unit
+  status      // draft | done
+  body (jsonb)      // free-form rich text / prose
+  script (jsonb)?   // scene heading, action lines, dialogue beats
+  meta (jsonb)?     // quest objectives, conditions, custom fields
+
+Character
+  id, storyId, name, attributes (json), bio, notes
+
+Location
+  id, storyId, name, description
+
+LoreEntry
+  id, storyId, title, body, category
+
+Link   // typed, polymorphic relation
+  id, storyId, fromType, fromId, toType, toId,
+  kind  // mentions | located_in | prerequisite | unlocks | resolves | references
+
+Tag            // cross-cutting labels (many-to-many to any entity)
+
+User           // identity (auth handled by external provider)
+  id, email, displayName, createdAt
+
+Membership     // user ↔ story tenancy gate
+  id, storyId, userId, role    // owner | collaborator | editor | viewer
+
+Release        // publish snapshot — the public face of a story
+  id, storyId, version, name?, createdById, publishedAt,
+  nodeIds (jsonb)              // nodes included in this release
+  notes?
+
+Comment (v1)   // proofreader/editor feedback on a node
+  id, nodeId, authorId, body, createdAt, resolvedAt?
+```
+
+All entities carry `createdBy` / `updatedBy` for audit. Tenancy: every query is scoped by `storyId`; Core is the authorization enforcement point (never trust the client).
+
+Shape mapping:
+- Linear (novels): `parentId` + `sortOrder` tree.
+- Branching (RPG quests): `Link` kind `prerequisite` / `unlocks` between quest nodes.
+- Scripts: `Node.script` jsonb + dialogue beats referencing characters.
+
+## Access control & publishing
+
+Visibility has two orthogonal axes:
+
+- **Authoring state** — `Node.status` = `draft | done`. Draught/working content is the "working set".
+- **Release** — a published snapshot (`Release.nodeIds`). Viewers see exactly the latest release, never the working set. This pairing is also the future seam for versioning/revisions.
+
+Permission matrix (story-level membership role):
+
+| Capability | Owner | Collaborator | Editor | Viewer |
+|---|:-:|:-:|:-:|:-:|
+| Manage settings, members, delete story | ✔ |  |  |  |
+| Create/edit/delete content | ✔ | ✔ |  |  |
+| Read drafts | ✔ | ✔ | ✔ |  |
+| Feedback/annotate drafts | ✔ | ✔ | ✔ |  |
+| Publish / release | ✔ |  |  |  |
+| Read published content | ✔ | ✔ | ✔ | ✔ |
+
+Rules:
+- Draft nodes are **never** exposed to viewers — not via search, links, or AI endpoints.
+- AI service must be scoped like the requestor; it may consume drafts only for members with draft access.
+- Core enforces authorization on every query; never trust the client.
+- v0 uses story-level roles; per-node ACL overrides may come later.
+
+## Decisions (log)
+
+1. **Hybrid content model** — structured units (`Node`) with free-form rich text inside (`body`), optionally plus structured `script`/`meta`. (Agreed.)
+2. **UI + microservices** — UI + API microservices; Java for persistence, Python for LLM integrations.
+3. **Per-section language override** — Story sets the default language; any book/chapter/scene may override it individually. Translations explored later (the `language` field on Node is the future seam).
+4. **Generic node graph + archetype config** — story types are config, not schema.
+5. **Role-based multi-tenancy** — story-level memberships with roles (owner | collaborator | editor | viewer); Core is the enforcement point on every query; drafts never leak to viewers.
+6. **Publishing = Release snapshot** — `Node.status` (draft|done) tracks authoring state; public visibility is a versioned `Release.nodeIds` snapshot (the seam for future revisions).
+
+## Open questions / next steps
+
+- Framework for UI and gateway (React/Next.js vs other, JS vs TS).
+- Java service framework specifics (Spring Boot), API style (REST vs gRPC).
+- Node revisioning/versioning & autosave strategy.
+- Event bus choice (Kafka/RabbitMQ) vs simpler webhooks.
+- Auth, multi-user collaboration, project sharing.
+
+## Working notes
+
+- Repo has no commits yet; do not commit unless asked.
+- No tests/lint commands exist yet — verify with the user before assuming a test framework.
+- Keep the domain vocabulary above consistent in code naming and docs.

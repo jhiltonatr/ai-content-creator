@@ -1,46 +1,87 @@
-import type { Story } from '../api/client'
-import { LANGUAGE_FLAGS } from '../constants'
+import { useCallback, useEffect, useState } from 'react';
+import { api } from '../api/client';
+import type { Story, StoryType } from '../api/types';
 
-interface StoryListProps {
-  stories: Story[]
-  onOpenContent: (story: Story) => void
-  onEdit: (story: Story) => void
-  onDelete: (story: Story) => void
-}
+const STORY_TYPES: { value: StoryType; label: string }[] = [
+  { value: 'NOVEL', label: 'Novel' },
+  { value: 'RPG', label: 'RPG-like game' },
+  { value: 'SCRIPT', label: 'TV/Movie script' },
+];
 
-function StoryList({ stories, onOpenContent, onEdit, onDelete }: StoryListProps) {
-  if (stories.length === 0) {
-    return <p className="empty">No stories yet.</p>
-  }
+export default function StoryList() {
+  const [stories, setStories] = useState<Story[]>([]);
+  const [showCreate, setShowCreate] = useState(false);
+  const [title, setTitle] = useState('');
+  const [storyType, setStoryType] = useState<StoryType>('NOVEL');
+  const [synopsis, setSynopsis] = useState('');
+  const [message, setMessage] = useState<string | null>(null);
+
+  const load = useCallback(() => {
+    api.stories().then(setStories).catch((e) => setMessage(e.message));
+  }, []);
+
+  useEffect(load, [load]);
+
+  const create = async () => {
+    try {
+      const story = await api.createStory({ title, storyType, synopsis });
+      setShowCreate(false);
+      setTitle('');
+      setSynopsis('');
+      window.location.hash = `#/story/${story.id}`;
+    } catch (e) {
+      setMessage((e as Error).message);
+    }
+  };
+
   return (
-    <ul className="story-list">
-      {stories.map((story) => (
-        <li key={story.id}>
-          <div className="story-info">
-            <strong>{story.title}</strong>
-            <div className="story-meta">
-              <span className="badge">{story.storyType}</span>
-              <span className="genre">{story.genre}</span>
-              <span className="flag" title={story.language}>
-                {LANGUAGE_FLAGS[story.language]}
-              </span>
+    <div className="page">
+      <div className="page-head">
+        <h1>Your stories</h1>
+        <button className="primary" onClick={() => setShowCreate((v) => !v)}>
+          {showCreate ? 'Cancel' : 'New story'}
+        </button>
+      </div>
+      {message && <div className="banner error">{message}</div>}
+      {showCreate && (
+        <div className="card">
+          <div className="field">
+            <label>Title</label>
+            <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="A story has many names" />
+          </div>
+          <div className="field">
+            <label>Type</label>
+            <select value={storyType} onChange={(e) => setStoryType(e.target.value as StoryType)}>
+              {STORY_TYPES.map((t) => (
+                <option key={t.value} value={t.value}>
+                  {t.label}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="field">
+            <label>Synopsis</label>
+            <textarea value={synopsis} onChange={(e) => setSynopsis(e.target.value)} rows={3} />
+          </div>
+          <button className="primary" disabled={!title.trim()} onClick={create}>
+            Create
+          </button>
+        </div>
+      )}
+      {stories.length === 0 && <p className="muted">No stories yet.</p>}
+      <ul className="story-grid">
+        {stories.map((s) => (
+          <li key={s.id} className="card story-card" onClick={() => (window.location.hash = `#/story/${s.id}`)}>
+            <div className="story-card-top">
+              <span className="badge">{s.storyType}</span>
+              <span className="badge role">{s.myRole}</span>
             </div>
-          </div>
-          <div className="story-actions">
-            <button type="button" className="button" onClick={() => onOpenContent(story)}>
-              Content
-            </button>
-            <button type="button" className="button" onClick={() => onEdit(story)}>
-              Edit
-            </button>
-            <button type="button" className="button button-danger-outline" onClick={() => onDelete(story)}>
-              Delete
-            </button>
-          </div>
-        </li>
-      ))}
-    </ul>
-  )
+            <strong>{s.title}</strong>
+            {s.myRole === 'VIEWER' && <div className="muted small">published content only</div>}
+            {s.synopsis && <p className="muted">{s.synopsis}</p>}
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
 }
-
-export default StoryList
