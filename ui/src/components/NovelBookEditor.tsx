@@ -11,6 +11,7 @@ import {
   type Story,
 } from '../api/client'
 import ConfirmDialog from './ConfirmDialog'
+import MarkdownEditor from './MarkdownEditor'
 
 function errorMessage(err: unknown): string {
   return err instanceof Error ? err.message : String(err)
@@ -80,13 +81,7 @@ function ChapterEditor({ storyId, bookId, chapter, onSaved, onDeleted, onCancel 
           Delete
         </button>
       </div>
-      <textarea
-        className="chapter-content-input"
-        value={content}
-        onChange={(e) => setContent(e.target.value)}
-        rows={10}
-        placeholder="Write the chapter text here..."
-      />
+      <MarkdownEditor value={content} onChange={setContent} rows={10} placeholder="Write the chapter text here..." />
       {error && <p className="error">{error}</p>}
       <ConfirmDialog
         open={confirmDelete}
