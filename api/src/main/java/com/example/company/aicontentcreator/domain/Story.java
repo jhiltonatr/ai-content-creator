@@ -11,7 +11,6 @@ public record Story(
         Language language,
         String description,
         List<String> tags,
-        String content,
         OffsetDateTime createdAt) {
 
     public Story {

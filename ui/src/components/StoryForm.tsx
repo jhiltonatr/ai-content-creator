@@ -22,7 +22,7 @@ function StoryForm({ initial, onSubmit, onCancel }: StoryFormProps) {
   const isEditing = initial !== undefined
 
   function handleTypeChange(nextType: StoryType) {
-    if (isEditing && nextType !== storyType && initial?.content.trim()) {
+    if (isEditing && nextType !== storyType) {
       setPendingType(nextType)
       return
     }
@@ -48,7 +48,6 @@ function StoryForm({ initial, onSubmit, onCancel }: StoryFormProps) {
         .split(',')
         .map((tag) => tag.trim())
         .filter(Boolean),
-      content: initial?.content ?? '',
     }
     try {
       setError(null)

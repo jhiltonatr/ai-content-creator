@@ -3,11 +3,12 @@ import { LANGUAGE_FLAGS } from '../constants'
 
 interface StoryListProps {
   stories: Story[]
+  onOpenContent: (story: Story) => void
   onEdit: (story: Story) => void
   onDelete: (story: Story) => void
 }
 
-function StoryList({ stories, onEdit, onDelete }: StoryListProps) {
+function StoryList({ stories, onOpenContent, onEdit, onDelete }: StoryListProps) {
   if (stories.length === 0) {
     return <p className="empty">No stories yet.</p>
   }
@@ -26,6 +27,9 @@ function StoryList({ stories, onEdit, onDelete }: StoryListProps) {
             </div>
           </div>
           <div className="story-actions">
+            <button type="button" className="button" onClick={() => onOpenContent(story)}>
+              Content
+            </button>
             <button type="button" className="button" onClick={() => onEdit(story)}>
               Edit
             </button>

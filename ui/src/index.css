@@ -224,10 +224,252 @@ body {
   margin-bottom: 16px;
 }
 
+.add-book-form {
+  display: flex;
+  gap: 8px;
+  max-width: 560px;
+  margin-bottom: 20px;
+}
+
+.add-book-form input,
+.add-chapter-form input {
+  flex: 1;
+  padding: 8px 10px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  font-size: 14px;
+  font-family: inherit;
+}
+
+.book-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.book-editor {
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 16px;
+}
+
+.book-editor-header {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.book-title-input {
+  flex: 1;
+  padding: 8px 10px;
+  font-size: 16px;
+  font-weight: 600;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  font-family: inherit;
+}
+
+.chapter-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.chapter-editor {
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 12px;
+  background: #fafafa;
+}
+
+.chapter-editor-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.chapter-title-input {
+  flex: 1;
+  padding: 6px 10px;
+  font-size: 14px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  font-family: inherit;
+}
+
+.chapter-content-input {
+  width: 100%;
+  padding: 10px;
+  font-size: 14px;
+  line-height: 1.6;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  font-family: inherit;
+  resize: vertical;
+}
+
+.add-chapter-form {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 .error {
   color: #b91c1c;
 }
 
 .empty {
   color: #6b7280;
+}
+
+.content-toolbar {
+  margin-bottom: 16px;
+}
+
+.search-input {
+  width: 100%;
+  padding: 8px 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  font-size: 14px;
+  font-family: inherit;
+}
+
+.accordion {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.accordion-item {
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.accordion-item.open {
+  border-color: #bfdbfe;
+}
+
+.accordion-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+}
+
+.accordion-toggle {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 4px;
+  border: none;
+  background: none;
+  cursor: pointer;
+  font-size: 15px;
+  font-weight: 600;
+  color: #1f2937;
+  font-family: inherit;
+  text-align: left;
+  min-width: 0;
+}
+
+.chevron {
+  display: inline-block;
+  color: #6b7280;
+  font-size: 12px;
+  transition: transform 0.15s ease;
+  flex-shrink: 0;
+}
+
+.chevron.down {
+  transform: rotate(90deg);
+}
+
+.accordion-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.chapter-count {
+  margin-left: auto;
+  flex-shrink: 0;
+  color: #6b7280;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.accordion-actions {
+  display: flex;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.icon-button {
+  padding: 6px 10px;
+  line-height: 1;
+}
+
+.accordion-body {
+  border-top: 1px solid #e5e7eb;
+  padding: 12px;
+  background: #fafafa;
+}
+
+.chapter-links {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.chapter-links li + li {
+  border-top: 1px solid #f0f0f0;
+}
+
+.chapter-link {
+  display: flex;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 10px;
+  border: none;
+  background: none;
+  cursor: pointer;
+  font-size: 14px;
+  font-family: inherit;
+  color: #2563eb;
+  text-align: left;
+}
+
+.chapter-link:hover {
+  background: #eff6ff;
+  border-radius: 6px;
+}
+
+.chapter-index {
+  color: #6b7280;
+}
+
+.chapter-read {
+  white-space: pre-wrap;
+}
+
+.chapter-read p {
+  margin: 0 0 12px;
+  line-height: 1.7;
 }

@@ -40,7 +40,6 @@ public class InMemoryStoryRepository implements StoryRepository {
                     story.language(),
                     story.description(),
                     story.tags(),
-                    story.content(),
                     OffsetDateTime.now());
         } else {
             Story existing = stories.get(story.id());
@@ -56,7 +55,6 @@ public class InMemoryStoryRepository implements StoryRepository {
                     story.language(),
                     story.description(),
                     story.tags(),
-                    story.content(),
                     createdAt);
         }
         stories.put(toStore.id(), toStore);
