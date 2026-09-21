@@ -1,0 +1,21 @@
+# Backend (Maven)
+api/target/
+
+# Frontend (Node)
+node_modules/
+dist/
+ui/node_modules/
+ui/dist/
+
+# Editors / IDEs
+.idea/
+*.iml
+.vscode/
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
