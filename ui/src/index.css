@@ -560,6 +560,25 @@ body {
   cursor: pointer;
 }
 
+.md-editor-size {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  font-size: 13px;
+  color: #374151;
+}
+
+.md-editor-size select {
+  padding: 2px 4px;
+  border: 1px solid #d1d5db;
+  border-radius: 4px;
+  font-size: 13px;
+  font-family: inherit;
+  background: #fff;
+  cursor: pointer;
+}
+
 .md-editor-textarea {
   width: 100%;
   padding: 10px;

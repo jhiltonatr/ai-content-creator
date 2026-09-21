@@ -1,0 +1,9 @@
+## Basic Story CRUD outline
+Goal: 
+Train and have a grmatical analyzer for the Story Content
+
+
+## Requirements
+- The should be applied to the large content text areas, so creating a separate Component in UI that uses it is preferred 
+- Support by Story language, e.g. English and Japanese, or any other support added later on
+- 
