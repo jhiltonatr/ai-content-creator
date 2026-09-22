@@ -138,3 +138,24 @@ export interface ApiErrorPayload {
   error: ApiErrorBody;
   current?: NodeFull;
 }
+
+export interface CharacterSuggestion {
+  name: string;
+  bio: string;
+}
+
+export interface LoreSuggestion {
+  title: string;
+  category: string;
+  body: string;
+}
+
+export interface ExtractionResponse {
+  nodeId: number;
+  storyId: number;
+  model: string;
+  enabled: boolean;
+  extractedAt: string;
+  characters: CharacterSuggestion[];
+  lore: LoreSuggestion[];
+}

@@ -229,6 +229,7 @@ export default function Workspace({ storyId, myRole }: WorkspaceProps) {
           {panelTab && (
             <Panels
               storyId={storyId}
+              nodeId={selectedId}
               myRole={myRole}
               canWrite={canWrite}
               canPublish={canPublish}

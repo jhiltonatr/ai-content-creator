@@ -77,6 +77,9 @@ export const api = {
   analyzeNode: (storyId: number, nodeId: number, doc: unknown, signal?: AbortSignal) =>
     request('POST', `/api/stories/${storyId}/nodes/${nodeId}/analyze`, { doc }, signal),
 
+  extractEntities: (storyId: number, nodeId: number, doc: unknown, types: string[], signal?: AbortSignal) =>
+    request('POST', `/api/stories/${storyId}/nodes/${nodeId}/extract`, { doc, types }, signal),
+
   characters: (storyId: number) => request('GET', `/api/stories/${storyId}/characters`),
   createCharacter: (storyId: number, body: Record<string, unknown>) =>
     request('POST', `/api/stories/${storyId}/characters`, body),

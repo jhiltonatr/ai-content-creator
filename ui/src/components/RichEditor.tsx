@@ -19,6 +19,7 @@ import { AiHighlight, setAiFindings } from '../ai/highlight';
 import { attachAiTooltip } from '../ai/tooltip';
 import { selectVisibleBlocks } from '../ai/viewport';
 import { mentionRenderer, type MentionItem } from './MentionList';
+import { emitSyncMentionsDone, SYNC_MENTIONS_EVENT, syncMentionsInContent, type MentionSyncKind, type MentionSyncRequest, type SyncNode } from './mentionSync';
 
 export interface TipTapDoc {
   type: 'doc';
@@ -357,6 +358,33 @@ export default function RichEditor({
   useEffect(() => {
     editorRef.current = editor ?? null;
   }, [editor]);
+
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const detail = (e as CustomEvent<MentionSyncRequest>).detail;
+      if (storyId === undefined || nodeId === undefined) return;
+      if (!detail || detail.storyId !== storyId || detail.nodeId !== nodeId) return;
+      if (detail.kind !== 'characters' && detail.kind !== 'lore') return;
+      const current = editorRef.current;
+      if (!current || !current.isEditable) return;
+      const targetType = detail.kind === 'characters' ? 'character' : 'lore';
+      const targets = mentionsRef.current.filter((m) => m.type === targetType);
+      if (targets.length === 0) {
+        emitSyncMentionsDone({ storyId, nodeId, kind: detail.kind as MentionSyncKind, count: 0 });
+        return;
+      }
+      const json = current.state.doc.toJSON() as { content?: SyncNode[] };
+      const result = syncMentionsInContent(json.content ?? [], targets);
+      if (!result.changed || result.count === 0) {
+        emitSyncMentionsDone({ storyId, nodeId, kind: detail.kind as MentionSyncKind, count: 0 });
+        return;
+      }
+      current.commands.setContent({ type: 'doc', content: result.nodes });
+      emitSyncMentionsDone({ storyId, nodeId, kind: detail.kind as MentionSyncKind, count: result.count });
+    };
+    window.addEventListener(SYNC_MENTIONS_EVENT, handler);
+    return () => window.removeEventListener(SYNC_MENTIONS_EVENT, handler);
+  }, [storyId, nodeId]);
 
   useEffect(() => {
     const el = editor?.view.dom;

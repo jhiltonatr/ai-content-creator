@@ -29,7 +29,7 @@ storyforge:
     max-paragraphs: 30
     max-paragraph-chars: 2000
   extraction:
-    enabled: false  # AI extraction action switch; disabled by default
+    enabled: true  # AI extraction action switch; disabled by default
 
 logging:
   level:
