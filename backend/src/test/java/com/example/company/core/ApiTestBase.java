@@ -1,5 +1,7 @@
 package com.example.company.core;
 
+import com.example.company.core.auth.PasswordHasher;
+import com.example.company.core.domain.SystemRole;
 import com.example.company.core.user.UserRepository;
 import com.example.company.core.user.UserRecord;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -25,10 +27,30 @@ abstract class ApiTestBase {
     protected UserRepository users;
 
     @Autowired
+    protected PasswordHasher passwords;
+
+    @Autowired
     protected JsonMapper mapper;
 
     protected UserRecord newUser(String email) {
         return users.create(email, email.split("@")[0]);
+    }
+
+    protected UserRecord newUser(String email, String password, SystemRole role) {
+        UserRecord user = users.create(email, email.split("@")[0], passwords.encode(password));
+        if (role != null) {
+            users.setSystemRole(user.id(), role);
+        }
+        return user;
+    }
+
+    protected String login(String email, String password) throws Exception {
+        MvcResult result = mvc.perform(MockMvcRequestBuilders.post("/api/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"email\":\"" + email + "\",\"password\":\"" + password + "\"}"))
+                .andExpect(MockMvcResultMatchers.status().isOk())
+                .andReturn();
+        return json(result).get("token").asText();
     }
 
     protected long createStory(long userId, String title, String storyType) throws Exception {

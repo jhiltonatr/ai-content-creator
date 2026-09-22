@@ -10,7 +10,7 @@ spring:
       schema-locations: classpath:db/schema.sql
 
 app:
-  demo-user-id: 1
+  trust-x-user-id: true # tests authenticate via the X-User-Id header; real auth uses bearer tokens
 
 storyforge:
   analysis:

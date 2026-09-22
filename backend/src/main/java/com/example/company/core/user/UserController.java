@@ -5,6 +5,7 @@ import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
@@ -25,9 +26,24 @@ public class UserController {
         return users.me(userId);
     }
 
-    @PostMapping("/users")
-    @ResponseStatus(HttpStatus.CREATED)
-    public UserRecord create(@Valid @RequestBody FindOrCreateUserRequest request) {
-        return users.findOrCreate(request);
+    @PutMapping("/me")
+    public MeResponse.UserInfo updateProfile(@CurrentUserId Long userId, @Valid @RequestBody UpdateProfileRequest request) {
+        return users.updateProfile(userId, request);
+    }
+
+    @PostMapping("/me/password")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void changePassword(@CurrentUserId Long userId, @Valid @RequestBody ChangePasswordRequest request) {
+        users.changePassword(userId, request);
+    }
+
+    @GetMapping("/me/settings")
+    public UserSettings settings(@CurrentUserId Long userId) {
+        return users.getSettings(userId);
+    }
+
+    @PutMapping("/me/settings")
+    public UserSettings saveSettings(@CurrentUserId Long userId, @Valid @RequestBody SaveSettingsRequest request) {
+        return users.saveSettings(userId, request);
     }
 }

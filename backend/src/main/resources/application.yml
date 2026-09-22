@@ -18,7 +18,7 @@ server:
   port: 8080
 
 app:
-  demo-user-id: 1
+  token-ttl-hours: 168 # opaque bearer tokens last 7 days; login reissues
 
 storyforge:
   analysis:

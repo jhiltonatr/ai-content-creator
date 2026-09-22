@@ -1,5 +1,6 @@
 package com.example.company.core.web;
 
+import com.example.company.core.common.UnauthorizedException;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.core.MethodParameter;
 import org.springframework.lang.NonNull;
@@ -9,16 +10,11 @@ import org.springframework.web.context.request.NativeWebRequest;
 import org.springframework.web.method.support.HandlerMethodArgumentResolver;
 import org.springframework.web.method.support.ModelAndViewContainer;
 
-import java.util.Optional;
-
+/**
+ * Resolves {@code @CurrentUserId Long} from the identity established by {@link AuthFilter}.
+ */
 @Component
 public class CurrentUserIdResolver implements HandlerMethodArgumentResolver {
-
-    private final CoreProperties properties;
-
-    public CurrentUserIdResolver(CoreProperties properties) {
-        this.properties = properties;
-    }
 
     @Override
     public boolean supportsParameter(MethodParameter parameter) {
@@ -32,14 +28,10 @@ public class CurrentUserIdResolver implements HandlerMethodArgumentResolver {
                                   @NonNull NativeWebRequest webRequest,
                                   WebDataBinderFactory binderFactory) {
         HttpServletRequest request = webRequest.getNativeRequest(HttpServletRequest.class);
-        long userId = properties.demoUserId();
-        if (request != null) {
-            userId = Optional.ofNullable(request.getHeader("X-User-Id"))
-                    .map(String::trim)
-                    .filter(s -> !s.isEmpty())
-                    .map(Long::parseLong)
-                    .orElse(properties.demoUserId());
+        Object userId = request == null ? null : request.getAttribute(AuthFilter.ATTR_USER_ID);
+        if (userId instanceof Long id) {
+            return id;
         }
-        return userId;
+        throw new UnauthorizedException("Authentication required");
     }
 }

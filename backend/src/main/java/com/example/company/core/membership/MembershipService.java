@@ -2,9 +2,9 @@ package com.example.company.core.membership;
 
 import com.example.company.core.access.AccessChecker;
 import com.example.company.core.common.BadRequestException;
+import com.example.company.core.common.NotFoundException;
 import com.example.company.core.domain.Role;
 import com.example.company.core.story.StoryRepository;
-import com.example.company.core.user.FindOrCreateUserRequest;
 import com.example.company.core.user.UserRecord;
 import com.example.company.core.user.UserRepository;
 import org.springframework.stereotype.Service;
@@ -39,8 +39,8 @@ public class MembershipService {
     public List<MembershipRecord> add(long userId, long storyId, AddMemberRequest request) {
         access.require(userId, storyId, AccessChecker.Capability.MANAGE_MEMBERS);
         stories.require(storyId);
-        UserRecord user = users.findByEmail(request.email())
-                .orElseGet(() -> users.create(request.email(), request.displayName()));
+        UserRecord user = users.findByEmail(request.email()).orElseThrow(() -> new NotFoundException(
+                "No account exists for " + request.email() + " — ask an administrator to create one first"));
         Role role = Role.from(request.role());
         if (role == null) {
             throw new BadRequestException("Unsupported role: " + request.role());

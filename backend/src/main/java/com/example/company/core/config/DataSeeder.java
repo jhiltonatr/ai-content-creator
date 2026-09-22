@@ -2,12 +2,14 @@ package com.example.company.core.config;
 
 import com.example.company.core.character.CharacterRecord;
 import com.example.company.core.character.CharacterRepository;
+import com.example.company.core.auth.PasswordHasher;
 import com.example.company.core.domain.EntityType;
 import com.example.company.core.domain.LinkKind;
 import com.example.company.core.domain.NodeKind;
 import com.example.company.core.domain.NodeStatus;
 import com.example.company.core.domain.Role;
 import com.example.company.core.domain.StoryType;
+import com.example.company.core.domain.SystemRole;
 import com.example.company.core.link.LinkRepository;
 import com.example.company.core.lore.LoreRepository;
 import com.example.company.core.membership.MembershipRepository;
@@ -39,6 +41,7 @@ public class DataSeeder implements CommandLineRunner {
     private final LoreRepository lore;
     private final LinkRepository links;
     private final ReleaseService releases;
+    private final PasswordHasher passwords;
     private final JsonMapper mapper;
 
     public DataSeeder(UserRepository users,
@@ -49,6 +52,7 @@ public class DataSeeder implements CommandLineRunner {
                       LoreRepository lore,
                       LinkRepository links,
                       ReleaseService releases,
+                      PasswordHasher passwords,
                       JsonMapper mapper) {
         this.users = users;
         this.stories = stories;
@@ -58,20 +62,29 @@ public class DataSeeder implements CommandLineRunner {
         this.lore = lore;
         this.links = links;
         this.releases = releases;
+        this.passwords = passwords;
         this.mapper = mapper;
     }
 
     @Override
     @Transactional
     public void run(String... args) {
+        // Accounts created before auth existed have no password; give them the demo password
+        // so seeded users are always usable.
+        users.backfillMissingPasswords(passwords.encode("storyforge"));
+
         if (users.findByEmail("alice@example.com").isPresent()) {
+            users.findByEmail("alice@example.com")
+                    .filter(u -> u.systemRole() != SystemRole.ADMIN)
+                    .ifPresent(u -> users.setSystemRole(u.id(), SystemRole.ADMIN));
             log.info("Seed data already present, skipping");
             return;
         }
 
-        UserRecord alice = users.create("alice@example.com", "Alice Alder");
-        UserRecord bob = users.create("bob@example.com", "Bob Birch");
-        UserRecord carol = users.create("carol@example.com", "Carol Cedar");
+        UserRecord alice = users.create("alice@example.com", "Alice Alder", passwords.encode("storyforge"));
+        users.setSystemRole(alice.id(), SystemRole.ADMIN);
+        UserRecord bob = users.create("bob@example.com", "Bob Birch", passwords.encode("storyforge"));
+        UserRecord carol = users.create("carol@example.com", "Carol Cedar", passwords.encode("storyforge"));
 
         long novel = story("The Silent Wood", StoryType.NOVEL, alice.id(), "A coming-of-age mystery set in a village that borders a forest which remembers too much.");
         memberships.upsert(novel, bob.id(), Role.COLLABORATOR);

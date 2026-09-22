@@ -110,6 +110,13 @@ public class StoryRepository {
         jdbc.sql("DELETE FROM stories WHERE id = :id").param("id", id).update();
     }
 
+    public long countOwnedBy(long userId) {
+        return jdbc.sql("SELECT COUNT(*) FROM stories WHERE created_by = :userId")
+                .param("userId", userId)
+                .query((rs, rowNum) -> rs.getLong(1))
+                .single();
+    }
+
     private StoryRecord map(java.sql.ResultSet rs, int rowNum) throws java.sql.SQLException {
         return new StoryRecord(
                 rs.getLong("id"),
