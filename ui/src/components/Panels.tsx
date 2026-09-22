@@ -8,11 +8,13 @@ interface PanelsProps {
   myRole: Role | null;
   canWrite: boolean;
   canPublish: boolean;
+  tab: Tab;
+  onTabChange: (tab: Tab) => void;
 }
 
-type Tab = 'characters' | 'lore' | 'members' | 'releases';
+export type Tab = 'characters' | 'lore' | 'members' | 'releases';
 
-const TABS: { id: Tab; label: string }[] = [
+export const TABS: { id: Tab; label: string }[] = [
   { id: 'characters', label: 'Characters' },
   { id: 'lore', label: 'Lore' },
   { id: 'members', label: 'Members' },
@@ -318,14 +320,12 @@ function ReleasesPanel({ storyId, canPublish }: { storyId: number; canPublish: b
   );
 }
 
-export default function Panels({ storyId, myRole, canWrite, canPublish }: PanelsProps) {
-  const [tab, setTab] = useState<Tab>('characters');
-
+export default function Panels({ storyId, myRole, canWrite, canPublish, tab, onTabChange }: PanelsProps) {
   return (
     <div className="panels">
       <div className="tabs">
         {TABS.map((t) => (
-          <button key={t.id} className={tab === t.id ? 'tab active' : 'tab'} onClick={() => setTab(t.id)}>
+          <button key={t.id} className={tab === t.id ? 'tab active' : 'tab'} onClick={() => onTabChange(t.id)}>
             {t.label}
           </button>
         ))}

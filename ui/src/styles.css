@@ -303,6 +303,41 @@ h1 {
   color: var(--text);
 }
 
+.rail-tabs {
+  flex: 0 0 78px;
+  width: 78px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 4px;
+  background: var(--bg-soft);
+}
+
+.rail-tab {
+  background: none;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  color: var(--muted);
+  font-size: 11px;
+  padding: 7px 4px;
+  cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-align: center;
+}
+
+.rail-tab:hover {
+  background: var(--bg-card);
+  color: var(--text);
+}
+
+.rail-tab.active {
+  color: var(--text);
+  border-color: var(--border);
+  background: var(--bg-card);
+}
+
 .col-head {
   display: flex;
   align-items: center;

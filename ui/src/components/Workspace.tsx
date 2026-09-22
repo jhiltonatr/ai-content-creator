@@ -3,7 +3,7 @@ import { api } from '../api/client';
 import type { NodeKind, NodeSummary, Role, Story, StoryType } from '../api/types';
 import NodeEditor from './NodeEditor';
 import NodeTree from './NodeTree';
-import Panels from './Panels';
+import Panels, { TABS as PANEL_TABS, Tab as PanelTab } from './Panels';
 import ReaderView from './ReaderView';
 
 interface WorkspaceProps {
@@ -34,6 +34,24 @@ function writePref(key: string, value: boolean): void {
   }
 }
 
+function readStringPref(key: string, dflt: string | null): string | null {
+  try {
+    const v = window.localStorage.getItem(key);
+    return v === null ? dflt : v;
+  } catch {
+    return dflt;
+  }
+}
+
+function writeStringPref(key: string, value: string | null): void {
+  try {
+    if (value === null) window.localStorage.removeItem(key);
+    else window.localStorage.setItem(key, value);
+  } catch {
+    /* ignore */
+  }
+}
+
 export default function Workspace({ storyId, myRole }: WorkspaceProps) {
   const [story, setStory] = useState<Story | null>(null);
   const [tree, setTree] = useState<NodeSummary[]>([]);
@@ -43,7 +61,12 @@ export default function Workspace({ storyId, myRole }: WorkspaceProps) {
   const [newTitle, setNewTitle] = useState('');
   const [newKind, setNewKind] = useState<NodeKind>(ROOT_KINDS.NOVEL[0]);
   const [showTree, setShowTree] = useState(() => readPref('storyforge:show-tree', true));
-  const [showPanels, setShowPanels] = useState(() => readPref('storyforge:show-panels', true));
+  const [panelTab, setPanelTab] = useState<PanelTab | null>(() => {
+    const saved = readStringPref('storyforge:panel-tab', null);
+    if (saved && PANEL_TABS.some((t) => t.id === saved)) return saved as PanelTab;
+    if (!readPref('storyforge:show-panels', true)) return null;
+    return 'characters';
+  });
 
   const openAddRoot = () => {
     setNewKind(ROOT_KINDS[story?.storyType ?? 'NOVEL'][0]);
@@ -113,10 +136,11 @@ export default function Workspace({ storyId, myRole }: WorkspaceProps) {
     });
   };
 
-  const togglePanels = () => {
-    setShowPanels((prev) => {
-      writePref('storyforge:show-panels', !prev);
-      return !prev;
+  const selectPanelTab = (tab: PanelTab) => {
+    setPanelTab((prev) => {
+      const next = prev === tab ? null : tab;
+      writeStringPref('storyforge:panel-tab', next);
+      return next;
     });
   };
 
@@ -164,7 +188,7 @@ export default function Workspace({ storyId, myRole }: WorkspaceProps) {
           />
         </aside>
         <button
-          className={`rail rail-left${showTree ? '' : ' closed'}`}
+          className={`rail rail-right${showTree ? '' : ' closed'}`}
           title={showTree ? 'Hide story tree' : 'Show story tree'}
           onClick={toggleTree}
         >
@@ -187,15 +211,31 @@ export default function Workspace({ storyId, myRole }: WorkspaceProps) {
             <p className="muted">Select a node — or create one — to start writing.</p>
           )}
         </section>
-        <button
-          className={`rail rail-right${showPanels ? '' : ' closed'}`}
-          title={showPanels ? 'Hide panels' : 'Show panels'}
-          onClick={togglePanels}
-        >
-          {showPanels ? '▶' : '◀'}
-        </button>
-        <aside className={`col panel-col${showPanels ? '' : ' collapsed'}`}>
-          <Panels storyId={storyId} myRole={myRole} canWrite={canWrite} canPublish={canPublish} />
+        <div className="rail-tabs" role="tablist" aria-label="Sidebar sections">
+          {PANEL_TABS.map((t) => (
+            <button
+              key={t.id}
+              role="tab"
+              aria-selected={panelTab === t.id}
+              className={`rail-tab${panelTab === t.id ? ' active' : ''}`}
+              title={panelTab === t.id ? `Close ${t.label}` : `Show ${t.label}`}
+              onClick={() => selectPanelTab(t.id)}
+            >
+              {t.label}
+            </button>
+          ))}
+        </div>
+        <aside className={`col panel-col${panelTab ? '' : ' collapsed'}`}>
+          {panelTab && (
+            <Panels
+              storyId={storyId}
+              myRole={myRole}
+              canWrite={canWrite}
+              canPublish={canPublish}
+              tab={panelTab}
+              onTabChange={selectPanelTab}
+            />
+          )}
         </aside>
       </div>
     </div>
