@@ -12,6 +12,10 @@ spring:
 app:
   demo-user-id: 1
 
+storyforge:
+  analysis:
+    enabled: true
+
 logging:
   level:
     root: warn

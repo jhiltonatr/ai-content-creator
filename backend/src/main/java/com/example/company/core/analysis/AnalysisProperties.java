@@ -11,6 +11,7 @@ public class AnalysisProperties {
 
     private String baseUrl = "http://localhost:8081";
     private String model = "llama3.1";
+    private boolean enabled = false;
     private int timeoutMs = 180_000;
     private int maxParagraphs = 30;
     private int maxParagraphChars = 2000;
@@ -29,6 +30,14 @@ public class AnalysisProperties {
 
     public void setModel(String model) {
         this.model = model;
+    }
+
+    public boolean enabled() {
+        return enabled;
+    }
+
+    public void setEnabled(boolean enabled) {
+        this.enabled = enabled;
     }
 
     public int timeoutMs() {

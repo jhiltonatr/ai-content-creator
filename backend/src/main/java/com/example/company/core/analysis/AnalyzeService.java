@@ -82,7 +82,8 @@ public class AnalyzeService {
     }
 
     public AnalyzeResponse run(PreparedAnalysis prepared, AtomicBoolean abort) {
-        List<AnalysisFinding> findings = prepared.paragraphs().isEmpty()
+        boolean enabled = props.enabled();
+        List<AnalysisFinding> findings = !enabled || prepared.paragraphs().isEmpty()
                 ? List.of()
                 : client.analyze(new ProseAnalysisRequest(
                         prepared.storyId(),
@@ -94,7 +95,13 @@ public class AnalyzeService {
                         prepared.paragraphs()),
                         abort);
         return new AnalyzeResponse(
-                prepared.nodeId(), prepared.storyId(), props.model(), Instant.now(), prepared.paragraphs(), findings);
+                prepared.nodeId(),
+                prepared.storyId(),
+                props.model(),
+                enabled,
+                Instant.now(),
+                prepared.paragraphs(),
+                findings);
     }
 
     private List<String> limit(List<String> paragraphs) {

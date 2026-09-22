@@ -7,6 +7,7 @@ public record AnalyzeResponse(
         long nodeId,
         long storyId,
         String model,
+        boolean enabled,
         Instant analyzedAt,
         List<String> paragraphs,
         List<AnalysisFinding> findings) {}
