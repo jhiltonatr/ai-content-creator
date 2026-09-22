@@ -248,28 +248,20 @@ public class LlamaAnalysisClient implements AnalysisClient {
     }
 
     private String systemPrompt(ProseAnalysisRequest request) {
-        String characters = request.characters().isEmpty() ? "none" : String.join(", ", request.characters());
-        String lore = request.lore().isEmpty() ? "none" : String.join(", ", request.lore());
         return """
-                You are an expert AI copyeditor for a %s story.  The author writes in %s.
+                You are an expert AI editorial editor for a %s story.  The author writes in %s.
                 Analyze the provided text for grammatical errors, spelling mistakes, punctuation issues, and
-                stylistic improvements.
+                stylistic improvements. and provide a severity analysis
                 
                 Context:
                 - Characters:
                 They might contain an `@` symbol before the name in the text to analyze. Ignore the `@` symbol
-                ```
-                %s
-                ```
                 - Lore entries:
                 They might contain an `#` symbol before the name in the text to analyze. Ignore the `#` symbol
-                ```
-                %s
-                ```
 
                 Respond ONLY with a JSON object matching this example:
                 ```json
-                {"findings":[{"paragraph":0,"from":0,"to":5,"severity":"warn","category":"style","message":"...","reason":"...","suggestion":"..."}, ...]}
+                {"findings":[{"paragraph":0,"from":0,"to":5,"severity":"warn","category":"style","message":"..."}, ...]}
                 ```
 
                 Rules:
@@ -280,10 +272,8 @@ public class LlamaAnalysisClient implements AnalysisClient {
                 - "category" is one of: grammar, style, clarity, consistency, structure.
                 - "message" is concise, written in %s.
                 - "message" follows language syntax rules.
-                - "reason" contains a human explanation of the rule.
-                - "suggestion" contains a human suggestion of how to fix the finding.
                 - If the prose is clean, return an empty findings array.
-                """.formatted(request.storyType(), request.language(), characters, lore, request.language());
+                """.formatted(request.storyType(), request.language(), request.language());
     }
 
     private String userPrompt(ProseAnalysisRequest request) {

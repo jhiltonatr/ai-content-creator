@@ -22,12 +22,14 @@ app:
 
 storyforge:
   analysis:
-    enabled: true  # global AI on/off switch; disabled by default
+    enabled: false  # AI analysis action switch; disabled by default
     base-url: http://localhost:8081
     model: mo-shakib/clearwriter
     timeout-ms: 180000
     max-paragraphs: 30
     max-paragraph-chars: 2000
+  extraction:
+    enabled: false  # AI extraction action switch; disabled by default
 
 logging:
   level:

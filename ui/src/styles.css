@@ -569,6 +569,47 @@ h1 {
   background: var(--accent-soft);
 }
 
+.analysis-state {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 20px;
+  color: var(--muted);
+}
+
+.analysis-state .spinner {
+  width: 13px;
+  height: 13px;
+  border: 2px solid var(--accent-soft);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spinner-rotate 0.8s linear infinite;
+}
+
+.analysis-state.done .state-glyph {
+  font-weight: 700;
+  line-height: 1;
+}
+
+.analysis-state.done.sev-clean .state-glyph,
+.analysis-state.done.sev-info .state-glyph {
+  color: var(--accent);
+}
+
+.analysis-state.done.sev-warn .state-glyph {
+  color: var(--warn);
+}
+
+.analysis-state.done.sev-danger .state-glyph {
+  color: var(--danger);
+}
+
+@keyframes spinner-rotate {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 .ai-hl {
   cursor: help;
   border-radius: 2px;
@@ -606,6 +647,27 @@ h1 {
 .ai-tooltip-msg {
   font-weight: 600;
   color: var(--text);
+}
+
+.ai-tooltip-icon {
+  display: inline-block;
+  min-width: 14px;
+  margin-right: 5px;
+  font-weight: 700;
+  text-align: center;
+}
+
+.ai-tooltip-icon.sev-info,
+.ai-tooltip-icon.sev-clean {
+  color: var(--accent);
+}
+
+.ai-tooltip-icon.sev-warn {
+  color: var(--warn);
+}
+
+.ai-tooltip-icon.sev-danger {
+  color: var(--danger);
 }
 
 .ai-tooltip-reason {
@@ -720,6 +782,14 @@ h1 {
   align-items: center;
   justify-content: space-between;
   gap: 8px;
+}
+
+.suggest-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 6px;
 }
 
 .release {

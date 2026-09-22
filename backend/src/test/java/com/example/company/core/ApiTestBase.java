@@ -56,4 +56,16 @@ abstract class ApiTestBase {
                 .andReturn();
         return mvc.perform(MockMvcRequestBuilders.asyncDispatch(pending)).andReturn();
     }
+
+    protected MvcResult extract(long storyId, long nodeId, long userId) throws Exception {
+        return extract(MockMvcRequestBuilders.post("/api/stories/" + storyId + "/nodes/" + nodeId + "/extract")
+                .header("X-User-Id", userId));
+    }
+
+    protected MvcResult extract(MockHttpServletRequestBuilder request) throws Exception {
+        MvcResult pending = mvc.perform(request)
+                .andExpect(MockMvcResultMatchers.request().asyncStarted())
+                .andReturn();
+        return mvc.perform(MockMvcRequestBuilders.asyncDispatch(pending)).andReturn();
+    }
 }

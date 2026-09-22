@@ -2,6 +2,23 @@ import type { Node as PmNode } from '@tiptap/pm/model';
 
 export type AiSeverity = 'info' | 'warn' | 'danger';
 
+export function severityGlyph(severity: AiSeverity | null): string {
+  return severity === 'danger' ? '✖' : severity === 'warn' ? '!' : severity === 'info' ? 'i' : '✓';
+}
+
+export function worstSeverity(findings: AiFinding[]): AiSeverity | null {
+  let worst: AiSeverity | null = null;
+  for (const f of findings) {
+    if (f.severity === 'danger') return 'danger';
+    if (f.severity === 'warn') {
+      worst = 'warn';
+    } else if (worst === null) {
+      worst = 'info';
+    }
+  }
+  return worst;
+}
+
 export interface AiFinding {
   from: number;
   to: number;

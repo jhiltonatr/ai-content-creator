@@ -7,7 +7,14 @@ import StarterKit from '@tiptap/starter-kit';
 import type { SuggestionOptions } from '@tiptap/suggestion';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { api } from '../api/client';
-import { analyzeProse, filterFindingsToVisible, mapFindingsToPositions, type AiFinding } from '../ai/analyze';
+import {
+  analyzeProse,
+  filterFindingsToVisible,
+  mapFindingsToPositions,
+  severityGlyph,
+  worstSeverity,
+  type AiFinding,
+} from '../ai/analyze';
 import { AiHighlight, setAiFindings } from '../ai/highlight';
 import { attachAiTooltip } from '../ai/tooltip';
 import { selectVisibleBlocks } from '../ai/viewport';
@@ -233,6 +240,7 @@ export default function RichEditor({
 
   const [aiOn, setAiOn] = useState(true);
   const [findings, setFindings] = useState<AiFinding[]>([]);
+  const [analyzing, setAnalyzing] = useState(false);
   const aiOnRef = useRef(aiOn);
   useEffect(() => {
     aiOnRef.current = aiOn;
@@ -264,6 +272,7 @@ export default function RichEditor({
       const sentDoc = e.state.doc;
       const controller = new AbortController();
       analysisAbortRef.current = controller;
+      setAnalyzing(true);
       api
         .analyzeNode(storyId, nodeId, selection.trimDoc, controller.signal)
         .then((response) => {
@@ -274,6 +283,7 @@ export default function RichEditor({
           const hits = mapFindingsToPositions(target.state.doc, response, selection.visibleNonBlank);
           setFindings(hits);
           setAiFindings(target, hits);
+          setAnalyzing(false);
         })
         .catch((err: unknown) => {
           if (controller.signal.aborted || (err as Error)?.name === 'AbortError') return;
@@ -288,6 +298,7 @@ export default function RichEditor({
               ),
             );
           }
+          setAnalyzing(false);
         });
     },
     [storyId, nodeId],
@@ -387,6 +398,7 @@ export default function RichEditor({
           runAnalysis(editor);
         } else {
           if (analysisAbortRef.current) analysisAbortRef.current.abort();
+          setAnalyzing(false);
           setAiFindings(editor, []);
           setFindings([]);
         }
@@ -416,6 +428,29 @@ export default function RichEditor({
       >
         AI{findings.length > 0 ? `: ${findings.length}` : ''}
       </button>
+      {(() => {
+        const sev = worstSeverity(findings);
+        const label = aiOn
+          ? sev === null
+            ? 'no issues'
+            : `${findings.length} finding${findings.length === 1 ? '' : 's'} (worst: ${sev})`
+          : 'off';
+        return (
+          <span
+            className={`analysis-state${analyzing ? ' busy' : aiOn ? ` done sev-${sev ?? 'clean'}` : ''}`}
+            title={analyzing ? 'Analysis in progress…' : `Analysis finished — ${label}`}
+            aria-live="polite"
+          >
+            {analyzing ? (
+              <span className="spinner" aria-hidden="true" />
+            ) : (
+              <span className="state-glyph" aria-hidden="true">
+                {severityGlyph(sev)}
+              </span>
+            )}
+          </span>
+        );
+      })()}
     </div>
   ) : null;
 
