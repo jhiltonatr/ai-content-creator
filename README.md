@@ -77,8 +77,11 @@ The editor can highlight style/grammar findings live. `RichEditor` posts the **v
 portion of the current doc (`{"doc": <TipTap JSON with only on-screen blocks>}`) to
 `/api/stories/{id}/nodes/{nodeId}/analyze`, keeping payloads, LLM load, and tokens down; it
 re-runs on edit and on scroll to follow the view. Core enforces draft access, then calls a
-local LLM over the OpenAI-compatible chat endpoint. If the LLM backend is unreachable the UI
-falls back to built-in heuristic highlighting, so the editor still works offline.
+local LLM over the OpenAI-compatible chat endpoint. The call runs off the request thread
+(`DeferredResult` + a virtual-thread executor); when the browser aborts the request (new
+edit, editor unmount) Core cancels the in-flight LLM call instead of letting it run to the
+full timeout. If the LLM backend is unreachable the UI falls back to built-in heuristic
+highlighting, so the editor still works offline.
 
 Run llama on port **8081** (8080 is the backend). With Ollama:
 

@@ -1,3 +1,4 @@
+import { Fragment, type Node as PmNode, Slice } from '@tiptap/pm/model';
 import { Mention } from '@tiptap/extension-mention';
 import { PluginKey } from '@tiptap/pm/state';
 import Placeholder from '@tiptap/extension-placeholder';
@@ -8,6 +9,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { api } from '../api/client';
 import { analyzeProse, filterFindingsToVisible, mapFindingsToPositions, type AiFinding } from '../ai/analyze';
 import { AiHighlight, setAiFindings } from '../ai/highlight';
+import { attachAiTooltip } from '../ai/tooltip';
 import { selectVisibleBlocks } from '../ai/viewport';
 import { mentionRenderer, type MentionItem } from './MentionList';
 
@@ -29,10 +31,62 @@ export function emptyDoc(): TipTapDoc {
 
 export function normalizeContent(body: unknown): TipTapDoc {
   if (body && typeof body === 'object' && (body as { type?: string }).type === 'doc') {
-    return body as TipTapDoc;
+    const doc = body as TipTapDoc;
+    return { ...doc, content: demoteArray(doc.content ?? []) };
   }
   if (Array.isArray(body) && body.length === 0) return emptyDoc();
   return emptyDoc();
+}
+
+function collectPlainText(node: TipTapNode): string {
+  if (typeof node.text === 'string') return node.text;
+  if (Array.isArray(node.content)) return node.content.map(collectPlainText).join('');
+  return '';
+}
+
+function codeBlockToParagraphs(node: TipTapNode): TipTapNode[] {
+  return collectPlainText(node)
+    .split(/\n{2,}/)
+    .map((block) => block.replace(/\n/g, ' ').trim())
+    .filter(Boolean)
+    .map((text) => ({ type: 'paragraph', content: [{ type: 'text', text }] }));
+}
+
+function demoteArray(nodes: TipTapNode[]): TipTapNode[] {
+  const out: TipTapNode[] = [];
+  for (const node of nodes) {
+    if (node.type === 'codeBlock') {
+      out.push(...codeBlockToParagraphs(node));
+    } else if (Array.isArray(node.content)) {
+      out.push({ ...node, content: demoteArray(node.content) });
+    } else {
+      out.push(node);
+    }
+  }
+  return out;
+}
+
+function demotePastedFragment(fragment: Fragment): Fragment {
+  const nodes: PmNode[] = [];
+  fragment.forEach((node) => {
+    if (node.type.name === 'codeBlock') {
+      const schema = node.type.schema;
+      node.textContent
+        .split(/\n{2,}/)
+        .map((block) => block.replace(/\n/g, ' ').trim())
+        .filter(Boolean)
+        .forEach((text) => nodes.push(schema.nodes.paragraph.create({}, schema.text(text))));
+    } else if (node.content.size) {
+      nodes.push(node.copy(demotePastedFragment(node.content)));
+    } else {
+      nodes.push(node);
+    }
+  });
+  return Fragment.fromArray(nodes);
+}
+
+function demotePastedSlice(slice: Slice): Slice {
+  return new Slice(demotePastedFragment(slice.content), slice.openStart, slice.openEnd);
 }
 
 function guardText(value: unknown): string {
@@ -190,6 +244,9 @@ export default function RichEditor({
     ],
     content: normalizeContent(initial),
     editable: !readOnly,
+    editorProps: {
+      transformPasted: (slice) => demotePastedSlice(slice),
+    },
     onUpdate: ({ editor: e }) => {
       onChange(e.getJSON() as TipTapDoc);
       scheduleAnalysis(e);
@@ -210,10 +267,12 @@ export default function RichEditor({
     const current = editor;
     if (!el || !current) return;
     const onViewportChange = () => scheduleAnalysis(editorRef.current ?? current);
+    const detachTooltip = attachAiTooltip(el);
     window.addEventListener('resize', onViewportChange, { passive: true });
     document.addEventListener('scroll', onViewportChange, true);
     el.addEventListener('scroll', onViewportChange, { passive: true });
     return () => {
+      detachTooltip();
       window.removeEventListener('resize', onViewportChange);
       document.removeEventListener('scroll', onViewportChange, true);
       el.removeEventListener('scroll', onViewportChange);

@@ -17,6 +17,12 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CancellationException;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 @Component
 public class LlamaAnalysisClient implements AnalysisClient {
@@ -24,6 +30,8 @@ public class LlamaAnalysisClient implements AnalysisClient {
     private static final Logger log = LoggerFactory.getLogger(LlamaAnalysisClient.class);
     private static final List<String> SEVERITIES = List.of("info", "warn", "danger");
     private static final String BLOCK_SEPARATOR = "====";
+    private static final long RETRY_SLEEP_MS = 3000;
+    private static final long ABORT_POLL_MS = 50;
 
     private final AnalysisProperties props;
     private final JsonMapper mapper;
@@ -39,32 +47,46 @@ public class LlamaAnalysisClient implements AnalysisClient {
 
     @Override
     public List<AnalysisFinding> analyze(ProseAnalysisRequest request) {
+        return analyze(request, new AtomicBoolean(false));
+    }
+
+    @Override
+    public List<AnalysisFinding> analyze(ProseAnalysisRequest request, AtomicBoolean abort) {
         if (request.paragraphs().isEmpty()) {
             return List.of();
         }
+        if (abort.get() || Thread.currentThread().isInterrupted()) {
+            throw new AnalysisAbortedException();
+        }
         try {
-            return doAnalyze(request);
+            return doAnalyze(request, abort);
         } catch (ServiceUnavailableException first) {
+            if (abort.get() || Thread.currentThread().isInterrupted()) {
+                throw new AnalysisAbortedException();
+            }
             log.warn("Analysis backend first attempt failed ({}); retrying once", first.getMessage());
             try {
-                Thread.sleep(3000);
+                Thread.sleep(RETRY_SLEEP_MS);
             } catch (InterruptedException ie) {
                 Thread.currentThread().interrupt();
-                throw first;
+                throw new AnalysisAbortedException();
             }
-            return doAnalyze(request);
+            if (abort.get() || Thread.currentThread().isInterrupted()) {
+                throw new AnalysisAbortedException();
+            }
+            return doAnalyze(request, abort);
         }
     }
 
-    private List<AnalysisFinding> doAnalyze(ProseAnalysisRequest request) {
-        String content = chat(systemPrompt(request), userPrompt(request));
+    private List<AnalysisFinding> doAnalyze(ProseAnalysisRequest request, AtomicBoolean abort) {
+        String content = chat(systemPrompt(request), userPrompt(request), abort);
         if (content == null || content.isBlank()) {
             return List.of();
         }
         return parse(content, request.paragraphs());
     }
 
-    private String chat(String system, String user) {
+    private String chat(String system, String user, AtomicBoolean abort) {
         List<Map<String, Object>> messages = new ArrayList<>();
         messages.add(message("system", system));
         messages.add(message("user", user));
@@ -72,33 +94,31 @@ public class LlamaAnalysisClient implements AnalysisClient {
         Map<String, Object> body = new LinkedHashMap<>();
         body.put("model", props.model());
         body.put("messages", messages);
-        body.put("temperature", 0.3);
-        body.put("max_tokens", 2048);
+        body.put("temperature", 0);
+        body.put("max_tokens", 1024);
 
         log.info("Sending analysis request: model={}, {} message(s)", body.get("model"),
                 ((List<?>) body.get("messages")).size());
         try {
-            return extractContent(post(body, true).body());
+            return extractContent(post(body, true, abort).body());
         } catch (HttpFailure e) {
             if (e.status != 400) {
                 throw new ServiceUnavailableException("Analysis backend returned status " + e.status);
             }
             try {
-                return extractContent(post(body, false).body());
+                return extractContent(post(body, false, abort).body());
             } catch (HttpFailure retry) {
                 throw new ServiceUnavailableException("Analysis backend rejected the request (status " + retry.status + ")");
-            } catch (IOException | InterruptedException retry) {
-                Thread.currentThread().interrupt();
+            } catch (IOException retry) {
                 throw unavailable("Analysis backend retry failed", retry);
             }
-        } catch (IOException | InterruptedException e) {
-            Thread.currentThread().interrupt();
+        } catch (IOException e) {
             throw unavailable("Analysis backend unavailable at " + props.baseUrl(), e);
         }
     }
 
-    private HttpResponse<String> post(Map<String, Object> body, boolean structured)
-            throws IOException, InterruptedException {
+    private HttpResponse<String> post(Map<String, Object> body, boolean structured, AtomicBoolean abort)
+            throws IOException {
         Map<String, Object> payload = new LinkedHashMap<>(body);
         if (structured) {
             payload.put("response_format", Map.of("type", "json_object"));
@@ -109,11 +129,37 @@ public class LlamaAnalysisClient implements AnalysisClient {
                 .timeout(Duration.ofMillis(props.timeoutMs()))
                 .POST(HttpRequest.BodyPublishers.ofString(mapper.writeValueAsString(payload)))
                 .build();
-        HttpResponse<String> response = http.send(request, HttpResponse.BodyHandlers.ofString());
-        if (response.statusCode() < 200 || response.statusCode() >= 300) {
-            throw new HttpFailure(response.statusCode());
+        CompletableFuture<HttpResponse<String>> future =
+                http.sendAsync(request, HttpResponse.BodyHandlers.ofString());
+        while (true) {
+            try {
+                HttpResponse<String> response = future.get(ABORT_POLL_MS, TimeUnit.MILLISECONDS);
+                if (response.statusCode() < 200 || response.statusCode() >= 300) {
+                    throw new HttpFailure(response.statusCode());
+                }
+                return response;
+            } catch (TimeoutException e) {
+                if (abort.get() || Thread.currentThread().isInterrupted()) {
+                    future.cancel(true);
+                    throw new AnalysisAbortedException();
+                }
+            } catch (CancellationException e) {
+                throw new AnalysisAbortedException();
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                future.cancel(true);
+                throw new AnalysisAbortedException();
+            } catch (ExecutionException e) {
+                Throwable cause = e.getCause();
+                if (cause instanceof IOException io) {
+                    throw io;
+                }
+                if (cause instanceof RuntimeException re) {
+                    throw re;
+                }
+                throw new IOException(cause);
+            }
         }
-        return response;
     }
 
     private String extractContent(String raw) {
@@ -205,12 +251,10 @@ public class LlamaAnalysisClient implements AnalysisClient {
         String characters = request.characters().isEmpty() ? "none" : String.join(", ", request.characters());
         String lore = request.lore().isEmpty() ? "none" : String.join(", ", request.lore());
         return """
-                You are a careful literary editor reviewing a draft for a %s story. The author writes in %s.
-
-                Find only concrete, localized problems in the prose: repeated words, filter words, passive voice,
-                subject-verb agreement slips, tense or point-of-view drift, overly long sentences, awkward phrasing,
-                and character or lore names used inconsistently with the context below.
-
+                You are an expert AI copyeditor for a %s story.  The author writes in %s.
+                Analyze the provided text for grammatical errors, spelling mistakes, punctuation issues, and 
+                stylistic improvements.
+                
                 Context:
                 - Characters:
                 They might contain an `@` symbol before the name in the text to analyze. Ignore the `@` symbol
@@ -223,7 +267,7 @@ public class LlamaAnalysisClient implements AnalysisClient {
                 %s
                 ```
 
-                Respond ONLY with a JSON object matching exactly:
+                Respond ONLY with a JSON object matching this example:
                 ```json
                 {"findings":[{"paragraph":0,"from":0,"to":5,"severity":"warn","category":"style","message":"...","reason":"...","suggestion":"..."}, ...]}
                 ```

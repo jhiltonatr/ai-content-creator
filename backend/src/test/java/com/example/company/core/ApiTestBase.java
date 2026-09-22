@@ -10,6 +10,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders;
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers;
+import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
 
@@ -42,5 +43,17 @@ abstract class ApiTestBase {
 
     protected JsonNode json(MvcResult result) throws Exception {
         return mapper.readTree(result.getResponse().getContentAsString());
+    }
+
+    protected MvcResult analyze(long storyId, long nodeId, long userId) throws Exception {
+        return analyze(MockMvcRequestBuilders.post("/api/stories/" + storyId + "/nodes/" + nodeId + "/analyze")
+                .header("X-User-Id", userId));
+    }
+
+    protected MvcResult analyze(MockHttpServletRequestBuilder request) throws Exception {
+        MvcResult pending = mvc.perform(request)
+                .andExpect(MockMvcResultMatchers.request().asyncStarted())
+                .andReturn();
+        return mvc.perform(MockMvcRequestBuilders.asyncDispatch(pending)).andReturn();
     }
 }

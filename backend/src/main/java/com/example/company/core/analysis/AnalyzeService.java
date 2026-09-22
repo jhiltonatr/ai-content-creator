@@ -13,6 +13,7 @@ import com.example.company.core.story.StoryRepository;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicBoolean;
 import org.springframework.stereotype.Service;
 import tools.jackson.databind.JsonNode;
 
@@ -47,7 +48,16 @@ public class AnalyzeService {
         this.props = props;
     }
 
-    public AnalyzeResponse analyze(long userId, long storyId, long nodeId, AnalyzeRequest analyzeRequest) {
+    public record PreparedAnalysis(
+            long storyId,
+            long nodeId,
+            String storyType,
+            String language,
+            List<String> characters,
+            List<String> lore,
+            List<String> paragraphs) {}
+
+    public PreparedAnalysis prepare(long userId, long storyId, long nodeId, AnalyzeRequest analyzeRequest) {
         access.require(userId, storyId, AccessChecker.Capability.READ_DRAFTS);
         StoryRecord story = stories.require(storyId);
         NodeFull node = nodes.findById(storyId, nodeId)
@@ -55,9 +65,6 @@ public class AnalyzeService {
 
         JsonNode body = analyzeRequest != null && analyzeRequest.doc() != null ? analyzeRequest.doc() : node.body();
         List<String> paragraphs = limit(extractor.paragraphs(body));
-        if (paragraphs.isEmpty()) {
-            return new AnalyzeResponse(nodeId, storyId, props.model(), Instant.now(), List.of(), List.of());
-        }
 
         List<String> characterNames = characters.listForStory(storyId).stream()
                 .map(CharacterRecord::name)
@@ -70,11 +77,24 @@ public class AnalyzeService {
             language = "en";
         }
 
-        ProseAnalysisRequest request = new ProseAnalysisRequest(
+        return new PreparedAnalysis(
                 storyId, nodeId, story.storyType().name(), language, characterNames, loreTitles, paragraphs);
+    }
 
-        List<AnalysisFinding> findings = client.analyze(request);
-        return new AnalyzeResponse(nodeId, storyId, props.model(), Instant.now(), paragraphs, findings);
+    public AnalyzeResponse run(PreparedAnalysis prepared, AtomicBoolean abort) {
+        List<AnalysisFinding> findings = prepared.paragraphs().isEmpty()
+                ? List.of()
+                : client.analyze(new ProseAnalysisRequest(
+                        prepared.storyId(),
+                        prepared.nodeId(),
+                        prepared.storyType(),
+                        prepared.language(),
+                        prepared.characters(),
+                        prepared.lore(),
+                        prepared.paragraphs()),
+                        abort);
+        return new AnalyzeResponse(
+                prepared.nodeId(), prepared.storyId(), props.model(), Instant.now(), prepared.paragraphs(), findings);
     }
 
     private List<String> limit(List<String> paragraphs) {

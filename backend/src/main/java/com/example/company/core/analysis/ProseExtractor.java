@@ -18,7 +18,7 @@ public class ProseExtractor {
 
     private void walk(JsonNode node, List<String> paragraphs) {
         String type = node.path("type").asText("");
-        if (type.equals("paragraph")) {
+        if (type.equals("paragraph") || type.equals("heading") || type.equals("codeBlock")) {
             String text = render(node.path("content"));
             if (!text.isBlank()) {
                 paragraphs.add(text);

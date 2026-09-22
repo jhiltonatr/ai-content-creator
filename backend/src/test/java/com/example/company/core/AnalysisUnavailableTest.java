@@ -43,9 +43,13 @@ class AnalysisUnavailableTest extends ApiTestBase {
                 .andReturn();
         long nodeId = json(created).get("id").longValue();
 
+        MvcResult pending = mvc.perform(MockMvcRequestBuilders.post("/api/stories/" + story + "/nodes/" + nodeId + "/analyze")
+                        .header("X-User-Id", alice))
+                .andExpect(MockMvcResultMatchers.request().asyncStarted())
+                .andReturn();
+
         var result =
-                json(mvc.perform(MockMvcRequestBuilders.post("/api/stories/" + story + "/nodes/" + nodeId + "/analyze")
-                                .header("X-User-Id", alice))
+                json(mvc.perform(MockMvcRequestBuilders.asyncDispatch(pending))
                         .andExpect(MockMvcResultMatchers.status().isServiceUnavailable())
                         .andReturn());
 

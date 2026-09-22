@@ -17,6 +17,23 @@ const ROOT_KINDS: Record<StoryType, NodeKind[]> = {
   SCRIPT: ['EPISODE'],
 };
 
+function readPref(key: string, dflt: boolean): boolean {
+  try {
+    const v = window.localStorage.getItem(key);
+    return v === null ? dflt : v === '1';
+  } catch {
+    return dflt;
+  }
+}
+
+function writePref(key: string, value: boolean): void {
+  try {
+    window.localStorage.setItem(key, value ? '1' : '0');
+  } catch {
+    /* ignore */
+  }
+}
+
 export default function Workspace({ storyId, myRole }: WorkspaceProps) {
   const [story, setStory] = useState<Story | null>(null);
   const [tree, setTree] = useState<NodeSummary[]>([]);
@@ -25,6 +42,8 @@ export default function Workspace({ storyId, myRole }: WorkspaceProps) {
   const [showAddRoot, setShowAddRoot] = useState(false);
   const [newTitle, setNewTitle] = useState('');
   const [newKind, setNewKind] = useState<NodeKind>(ROOT_KINDS.NOVEL[0]);
+  const [showTree, setShowTree] = useState(() => readPref('storyforge:show-tree', true));
+  const [showPanels, setShowPanels] = useState(() => readPref('storyforge:show-panels', true));
 
   const openAddRoot = () => {
     setNewKind(ROOT_KINDS[story?.storyType ?? 'NOVEL'][0]);
@@ -87,6 +106,20 @@ export default function Workspace({ storyId, myRole }: WorkspaceProps) {
     return <ReaderView story={story} />;
   }
 
+  const toggleTree = () => {
+    setShowTree((prev) => {
+      writePref('storyforge:show-tree', !prev);
+      return !prev;
+    });
+  };
+
+  const togglePanels = () => {
+    setShowPanels((prev) => {
+      writePref('storyforge:show-panels', !prev);
+      return !prev;
+    });
+  };
+
   return (
     <div className="workspace">
       {message && (
@@ -94,63 +127,77 @@ export default function Workspace({ storyId, myRole }: WorkspaceProps) {
           {message}
         </div>
       )}
-      <aside className="col tree-col">
-        <div className="col-head">
-          <strong>{story.title}</strong>
-          <span className="badge">{story.storyType}</span>
-          {canWrite && (
-            <button className="small" onClick={openAddRoot}>
-              + Root
-            </button>
-          )}
-        </div>
-        {showAddRoot && (
-          <div className="card add-form">
-            <input value={newTitle} onChange={(e) => setNewTitle(e.target.value)} placeholder="Title" />
-            <select value={newKind} onChange={(e) => setNewKind(e.target.value as NodeKind)}>
-              {ROOT_KINDS[story.storyType].map((k) => (
-                <option key={k} value={k}>
-                  {k}
-                </option>
-              ))}
-            </select>
-            <button className="primary small" disabled={!newTitle.trim()} onClick={addRoot}>
-              Add
-            </button>
+      <div className="workspace-row">
+        <aside className={`col tree-col${showTree ? '' : ' collapsed'}`}>
+          <div className="col-head">
+            <strong>{story.title}</strong>
+            <span className="badge">{story.storyType}</span>
+            {canWrite && (
+              <button className="small" onClick={openAddRoot}>
+                + Root
+              </button>
+            )}
           </div>
-        )}
-        <NodeTree
-          nodes={tree}
-          selectedId={selectedId}
-          onSelect={setSelectedId}
-          storyType={story.storyType}
-          storyId={storyId}
-          canWrite={canWrite}
-          onChanged={refresh}
-        />
-      </aside>
-      <section className="col editor-col">
-        {selectedId ? (
-          <NodeEditor
-            storyId={storyId}
-            nodeId={selectedId}
+          {showAddRoot && (
+            <div className="card add-form">
+              <input value={newTitle} onChange={(e) => setNewTitle(e.target.value)} placeholder="Title" />
+              <select value={newKind} onChange={(e) => setNewKind(e.target.value as NodeKind)}>
+                {ROOT_KINDS[story.storyType].map((k) => (
+                  <option key={k} value={k}>
+                    {k}
+                  </option>
+                ))}
+              </select>
+              <button className="primary small" disabled={!newTitle.trim()} onClick={addRoot}>
+                Add
+              </button>
+            </div>
+          )}
+          <NodeTree
+            nodes={tree}
+            selectedId={selectedId}
+            onSelect={setSelectedId}
             storyType={story.storyType}
+            storyId={storyId}
             canWrite={canWrite}
             onChanged={refresh}
-            onDelete={() => {
-              setSelectedId(null);
-              refresh();
-            }}
           />
-        ) : (
-          <p className="muted">
-            Select a node — or create one — to start writing.
-          </p>
-        )}
-      </section>
-      <aside className="col panel-col">
-        <Panels storyId={storyId} myRole={myRole} canWrite={canWrite} canPublish={canPublish} />
-      </aside>
+        </aside>
+        <button
+          className={`rail rail-left${showTree ? '' : ' closed'}`}
+          title={showTree ? 'Hide story tree' : 'Show story tree'}
+          onClick={toggleTree}
+        >
+          {showTree ? '◀' : '▶'}
+        </button>
+        <section className="col editor-col">
+          {selectedId ? (
+            <NodeEditor
+              storyId={storyId}
+              nodeId={selectedId}
+              storyType={story.storyType}
+              canWrite={canWrite}
+              onChanged={refresh}
+              onDelete={() => {
+                setSelectedId(null);
+                refresh();
+              }}
+            />
+          ) : (
+            <p className="muted">Select a node — or create one — to start writing.</p>
+          )}
+        </section>
+        <button
+          className={`rail rail-right${showPanels ? '' : ' closed'}`}
+          title={showPanels ? 'Hide panels' : 'Show panels'}
+          onClick={togglePanels}
+        >
+          {showPanels ? '▶' : '◀'}
+        </button>
+        <aside className={`col panel-col${showPanels ? '' : ' collapsed'}`}>
+          <Panels storyId={storyId} myRole={myRole} canWrite={canWrite} canPublish={canPublish} />
+        </aside>
+      </div>
     </div>
   );
 }

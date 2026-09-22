@@ -40,7 +40,9 @@ export function setAiFindings(editor: Editor, findings: AiFinding[]): void {
     findings.map((f) =>
       Decoration.inline(f.from, f.to, {
         class: `ai-hl ai-hl-${f.severity}`,
-        title: f.message,
+        'data-msg': f.message ?? '',
+        'data-reason': f.reason ?? '',
+        'data-sug': f.suggestion ?? '',
       }),
     ),
   );

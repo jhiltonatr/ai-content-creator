@@ -160,12 +160,24 @@ Backend (`backend/.../core/analysis/`):
   JSON-object, temperature 0, one retry without it on HTTP 400, and one retry (3 s) on
   connection/timeout errors so a cold llama model load (~ >60 s) can finish; 10 s connect /
   configurable read timeout (default 180 s); robust parsing/validation of findings;
-  failures → `503 SERVICE_UNAVAILABLE`.
-- `AnalyzeService` / `AnalyzeController` — `POST /api/stories/{storyId}/nodes/{nodeId}/analyze`
-  with an **optional** TipTap doc payload `{"doc": ...}` (the editor sends its live doc; the
-  saved body is the fallback). Enforces `READ_DRAFTS`, loads story + node +
-  language/character/lore context, truncates to `max-paragraphs` × `max-paragraph-chars`,
-  returns `{nodeId, storyId, model, analyzedAt, paragraphs[], findings[]}`.
+  failures → `503 SERVICE_UNAVAILABLE`. `LlamaAnalysisClient` offers an
+  `analyze(request, AtomicBoolean abort)` overload that drives the HTTP call via
+  `sendAsync` + a 50 ms poll loop and cancels the in-flight exchange
+  (`future.cancel(true)`) the moment abort flips, throwing `AnalysisAbortedException`.
+- `AnalyzeService` — split into `prepare(...)` (request thread: access check `READ_DRAFTS`,
+  story/node load, language/character/lore context, `max-paragraphs` × `max-paragraph-chars`
+  truncation) and `run(prepared, abort)` (async worker: zero DB, just the outbound AI call),
+  so 4xx/5xx from validation still ride the normal `@RestControllerAdvice` path.
+- `AnalyzeController` — `POST /api/stories/{storyId}/nodes/{nodeId}/analyze` with an
+  **optional** TipTap doc payload `{"doc": ...}` (the editor sends its live doc; the saved
+  body is the fallback). Now returns a `DeferredResult<AnalyzeResponse>`; the worker runs on
+  a virtual-thread executor (`AnalysisExecutorConfig#analysisExecutor`,
+  `@Bean(destroyMethod="shutdown")`, `@Qualifier("analysisExecutor")`). When the client
+  disconnects, `onError`/`onTimeout`/`onCompletion` set the abort flag **and** interrupt the
+  worker (`Future.cancel(true)`) so a long llama call stops promptly instead of running to
+  the full timeout; the DeferredResult timeout (2× `timeout-ms` + 6 s) is only a backstop.
+  `AnalysisAbortedException` is swallowed (nothing to deliver).
+- Returns `{nodeId, storyId, model, analyzedAt, paragraphs[], findings[]}`.
 - Config in `application.yml`: `storyforge.analysis.{base-url, model, timeout-ms,
   max-paragraphs, max-paragraph-chars}`.
 
@@ -175,10 +187,15 @@ UI:
   `mapFindingsToPositions()` translates backend findings to decoration positions.
 - `ui/src/ai/highlight.ts` — ProseMirror `Plugin` holding a `DecorationSet`
   (`aiHighlightKey`), the `AiHighlight` TipTap extension, and `setAiFindings()`.
+  Span attrs carry `data-msg` / `data-reason` / `data-sug` (reason+suggestion come
+  straight from the backend `AnalysisFinding` record).
+- `ui/src/ai/tooltip.ts` — `attachAiTooltip(root)` mounts a styled, multi-line floating
+  tooltip (`message` + `Why:` reason + `Fix:` suggestion) on `.ai-hl` hover, replacing the
+  old single-line `title` attribute.
 - `RichEditor.tsx` — debounced analysis on edit and on viewport scroll/resize, an **AI**
-  toggle with a finding count, and `title`-tooltips on highlighted spans; uses the backend
-  when `storyId`/`nodeId` are provided, else the heuristic fallback (analyzes the full doc,
-  then filtered to the visible blocks).
+  toggle with a finding count, and the enriched hover tooltip; uses the backend when
+  `storyId`/`nodeId` are provided, else the heuristic fallback (analyzes the full doc, then
+  filtered to the visible blocks).
 - `ui/src/ai/viewport.ts` — visible-block selection (`selectVisibleBlocks`) that trims the
   payload to the on-screen blocks.
 - `styles.css` — `ai-hl` per-severity underline classes.
@@ -186,19 +203,42 @@ UI:
 Tests: `AnalysisTest` (owner 200 with findings/paragraphs, viewer 403, empty prose
 short-circuit, posted-doc-payload overrides saved body) and `AnalysisUnavailableTest`
 (503 + `SERVICE_UNAVAILABLE`), both with stubbed `AnalysisClient` via
-`@TestConfiguration @Primary` beans.
+`@TestConfiguration @Primary` beans — the OK/503 paths use MockMvc async dispatch
+(`asyncStarted` → `asyncDispatch`) because the controller now returns a `DeferredResult`;
+the 403 stays synchronous (thrown from `prepare`). `AnalysisCancellationTest` spins an
+in-process JDK `HttpServer` that sleeps on `/v1/chat/completions` and verifies flipping the
+abort flag frees the worker (`AnalysisAbortedException` in well under the response delay).
 
 Not implemented: streaming, persistence of findings, script-format conformance (structured
 `ScriptBlock` analysis), the FastAPI wrapper, and viewer-facing highlights of a release.
 
 ## Invariants
 
-1. Decorations only — AI never writes into the node document or `script`/`meta` payloads.
+1. Decorations only �?" AI never writes into the node document or `script`/`meta` payloads.
 2. Core is the only authorization point; llama is reached server-to-server and gets exactly
    the content the requestor may read.
 3. Findings are derived from exactly what the requestor may read (drafts for draft-access
    members only).
 4. Stale/cancelled AI results never paint over newer edits.
+
+## Pasted drafts must never vanish into a code block (2026-09-22)
+
+Pasting markdown-like text into the editor used to be captured by Tiptap's CodeBlock paste
+rule, producing a `codeBlock` node (with `language:"markdown"`). Inside a code block the
+mention atoms never form (`@`/`#` stay literal) AND `ProseExtractor` skipped it, so /analyze
+returned an instant empty 200 (no AI task, no findings). Two-part fix:
+
+1. `ui/src/components/RichEditor.tsx` — `normalizeContent()` demotes any stored `codeBlock`
+   to paragraphs on load, and `editorProps.transformPasted` demotes pasted code blocks to
+   paragraphs (`\n\n` = new paragraph, single `\n` = space; existing fenced text keeps its
+   fence lines as literal text). No toolbar action creates code blocks, so they no longer
+   appear at all.
+2. `backend ProseExtractor` — treats `codeBlock` and `heading` as prose leaves, so any block
+   that slips through is still analyzed.
+
+Note: a codeBlock pasted before these fixes may have left a half-mention / dropped-character
+body behind (e.g. "@Elian n is a bad person.", "@Marrow ow went to ..."); those stored docs
+need a manual rewrite, not a migration.
 
 ## Open questions
 

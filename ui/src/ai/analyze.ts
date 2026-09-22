@@ -8,6 +8,8 @@ export interface AiFinding {
   severity: AiSeverity;
   category: string;
   message: string;
+  reason?: string;
+  suggestion?: string;
 }
 
 export interface AnalyzerContext {
@@ -26,6 +28,8 @@ export interface AnalysisFindingDto {
   severity: AiSeverity;
   category: string;
   message: string;
+  reason?: string;
+  suggestion?: string;
 }
 
 export interface AnalyzeNodeResponse {
@@ -214,6 +218,8 @@ export function mapFindingsToPositions(
       severity: finding.severity,
       category: finding.category,
       message: finding.message,
+      reason: finding.reason,
+      suggestion: finding.suggestion,
     });
   }
   return out;

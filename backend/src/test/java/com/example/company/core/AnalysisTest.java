@@ -23,7 +23,8 @@ class AnalysisTest extends ApiTestBase {
         @Bean
         @Primary
         AnalysisClient stubAnalysisClient() {
-            return request -> List.of(new AnalysisFinding(0, 0, 10, "warn", "style", "Repeated word."));
+            return request -> List.of(new AnalysisFinding(
+                    0, 0, 10, "warn", "style", "Repeated word.", "Rule explains the finding.", "Rewrite it."));
         }
     }
 
@@ -44,11 +45,7 @@ class AnalysisTest extends ApiTestBase {
                 .andReturn();
         long nodeId = json(created).get("id").longValue();
 
-        var analyzed =
-                json(mvc.perform(MockMvcRequestBuilders.post("/api/stories/" + story + "/nodes/" + nodeId + "/analyze")
-                                .header("X-User-Id", alice))
-                        .andExpect(MockMvcResultMatchers.status().isOk())
-                        .andReturn());
+        var analyzed = json(analyze(story, nodeId, alice));
 
         assertThat(analyzed.get("nodeId").longValue()).isEqualTo(nodeId);
         assertThat(analyzed.get("model").asText()).isEqualTo("llama3.1");
@@ -96,11 +93,7 @@ class AnalysisTest extends ApiTestBase {
                 .andReturn();
         long nodeId = json(created).get("id").longValue();
 
-        var analyzed =
-                json(mvc.perform(MockMvcRequestBuilders.post("/api/stories/" + story + "/nodes/" + nodeId + "/analyze")
-                                .header("X-User-Id", alice))
-                        .andExpect(MockMvcResultMatchers.status().isOk())
-                        .andReturn());
+        var analyzed = json(analyze(story, nodeId, alice));
 
         assertThat(analyzed.get("findings")).isEmpty();
         assertThat(analyzed.get("paragraphs")).isEmpty();
@@ -121,14 +114,12 @@ class AnalysisTest extends ApiTestBase {
                 .andReturn();
         long nodeId = json(created).get("id").longValue();
 
-        var analyzed = json(mvc.perform(MockMvcRequestBuilders
-                        .post("/api/stories/" + story + "/nodes/" + nodeId + "/analyze")
-                        .header("X-User-Id", alice)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"doc\":{\"type\":\"doc\",\"content\":[{\"type\":\"paragraph\",\"content\":[{\"type\""
-                                + ":\"text\",\"text\":\"Cake was eaten.\"}]}]}}"))
-                .andExpect(MockMvcResultMatchers.status().isOk())
-                .andReturn());
+        var analyzed = json(analyze(MockMvcRequestBuilders
+                .post("/api/stories/" + story + "/nodes/" + nodeId + "/analyze")
+                .header("X-User-Id", alice)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"doc\":{\"type\":\"doc\",\"content\":[{\"type\":\"paragraph\",\"content\":[{\"type\""
+                        + ":\"text\",\"text\":\"Cake was eaten.\"}]}]}}")));
 
         assertThat(analyzed.get("paragraphs")).hasSize(1);
         assertThat(analyzed.get("paragraphs").get(0).asText()).isEqualTo("Cake was eaten.");

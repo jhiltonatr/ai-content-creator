@@ -13,7 +13,10 @@ export default function Header({ me, userId, demoUsers, onSwitchUser, inStory, o
   return (
     <header className="header">
       <div className="header-title" onClick={onHome} role="button">
-        <span className="brand">Storyforge</span>
+        <span className="brand">
+          <img className="brand-icon" src="/app-icon.svg" width="20" height="20" alt="StoryForge" />
+          Storyforge
+        </span>
         {inStory && <button className="linkish">← Stories</button>}
       </div>
       <div className="header-right">
