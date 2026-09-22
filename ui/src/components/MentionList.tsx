@@ -1,12 +1,9 @@
 import { ReactRenderer } from '@tiptap/react';
 import type { SuggestionKeyDownProps, SuggestionProps } from '@tiptap/suggestion';
 import { forwardRef, useEffect, useImperativeHandle, useState } from 'react';
+import type { MentionItem } from '../lib/mentionSync';
 
-export interface MentionItem {
-  id: string;
-  label: string;
-  type: 'character' | 'lore';
-}
+export type { MentionItem };
 
 interface MentionListHandle {
   onUp: () => void;

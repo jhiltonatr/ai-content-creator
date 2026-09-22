@@ -1,5 +1,5 @@
-import { useState } from 'react';
 import type { NodeFull, NodeStatus } from '../api/types';
+import { useBooleanPref } from '../hooks/useLocalStoragePref';
 
 interface MetadataBarProps {
   node: NodeFull;
@@ -14,14 +14,6 @@ interface MetadataBarProps {
   onDelete?: () => void;
 }
 
-function readMinimized(): boolean {
-  try {
-    return window.localStorage.getItem('storyforge:meta-minimized') === '1';
-  } catch {
-    return false;
-  }
-}
-
 export default function MetadataBar({
   node,
   title,
@@ -34,19 +26,7 @@ export default function MetadataBar({
   onSave,
   onDelete,
 }: MetadataBarProps) {
-  const [minimized, setMinimized] = useState(readMinimized);
-
-  const toggle = () => {
-    setMinimized((prev) => {
-      const next = !prev;
-      try {
-        window.localStorage.setItem('storyforge:meta-minimized', next ? '1' : '0');
-      } catch {
-        /* ignore */
-      }
-      return next;
-    });
-  };
+  const [minimized, toggle] = useBooleanPref('storyforge:meta-minimized', false);
 
   return (
     <div className={`meta-bar${minimized ? ' minimized' : ''}`}>
@@ -68,7 +48,7 @@ export default function MetadataBar({
         <button
           className="small icon-btn"
           title={minimized ? 'Restore full header' : 'Minimize to title + save'}
-          onClick={toggle}
+          onClick={() => toggle((prev) => !prev)}
         >
           {minimized ? '▴' : '▾'}
         </button>

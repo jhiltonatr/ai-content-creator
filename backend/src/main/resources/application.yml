@@ -22,7 +22,7 @@ app:
 
 storyforge:
   analysis:
-    enabled: false  # AI analysis action switch; disabled by default
+    enabled: true  # AI analysis action switch; disabled by default
     base-url: http://localhost:8081
     model: mo-shakib/clearwriter
     timeout-ms: 180000

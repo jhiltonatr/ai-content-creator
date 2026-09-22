@@ -1,9 +1,9 @@
-import { useCallback, useEffect, useState } from 'react';
-import { api } from '../api/client';
-import type { NodeKind, NodeSummary, Role, Story, StoryType } from '../api/types';
-import NodeEditor from './NodeEditor';
-import NodeTree from './NodeTree';
-import Panels, { TABS as PANEL_TABS, Tab as PanelTab } from './Panels';
+import NodeEditor from '../components/NodeEditor';
+import NodeTree from '../components/NodeTree';
+import Panels from '../components/panels/Panels';
+import { useWorkspace } from '../hooks/useWorkspace';
+import { PANEL_TABS } from '../lib/panels';
+import type { NodeKind, Role } from '../api/types';
 import ReaderView from './ReaderView';
 
 interface WorkspaceProps {
@@ -11,110 +11,30 @@ interface WorkspaceProps {
   myRole: Role | null;
 }
 
-const ROOT_KINDS: Record<StoryType, NodeKind[]> = {
-  NOVEL: ['BOOK'],
-  RPG: ['ACT'],
-  SCRIPT: ['EPISODE'],
-};
-
-function readPref(key: string, dflt: boolean): boolean {
-  try {
-    const v = window.localStorage.getItem(key);
-    return v === null ? dflt : v === '1';
-  } catch {
-    return dflt;
-  }
-}
-
-function writePref(key: string, value: boolean): void {
-  try {
-    window.localStorage.setItem(key, value ? '1' : '0');
-  } catch {
-    /* ignore */
-  }
-}
-
-function readStringPref(key: string, dflt: string | null): string | null {
-  try {
-    const v = window.localStorage.getItem(key);
-    return v === null ? dflt : v;
-  } catch {
-    return dflt;
-  }
-}
-
-function writeStringPref(key: string, value: string | null): void {
-  try {
-    if (value === null) window.localStorage.removeItem(key);
-    else window.localStorage.setItem(key, value);
-  } catch {
-    /* ignore */
-  }
-}
-
 export default function Workspace({ storyId, myRole }: WorkspaceProps) {
-  const [story, setStory] = useState<Story | null>(null);
-  const [tree, setTree] = useState<NodeSummary[]>([]);
-  const [selectedId, setSelectedId] = useState<number | null>(null);
-  const [message, setMessage] = useState<string | null>(null);
-  const [showAddRoot, setShowAddRoot] = useState(false);
-  const [newTitle, setNewTitle] = useState('');
-  const [newKind, setNewKind] = useState<NodeKind>(ROOT_KINDS.NOVEL[0]);
-  const [showTree, setShowTree] = useState(() => readPref('storyforge:show-tree', true));
-  const [panelTab, setPanelTab] = useState<PanelTab | null>(() => {
-    const saved = readStringPref('storyforge:panel-tab', null);
-    if (saved && PANEL_TABS.some((t) => t.id === saved)) return saved as PanelTab;
-    if (!readPref('storyforge:show-panels', true)) return null;
-    return 'characters';
-  });
-
-  const openAddRoot = () => {
-    setNewKind(ROOT_KINDS[story?.storyType ?? 'NOVEL'][0]);
-    setShowAddRoot((v) => !v);
-  };
-
-  const canWrite = myRole === 'OWNER' || myRole === 'COLLABORATOR';
-  const canPublish = myRole === 'OWNER';
-
-  const load = useCallback(() => {
-    api
-      .stories()
-      .then(async (all: Story[]) => {
-        const s = all.find((x) => x.id === storyId) ?? (await api.getStory(storyId));
-        setStory(s);
-      })
-      .catch((e) => setMessage(e.message));
-    api
-      .nodes(storyId)
-      .then(setTree)
-      .catch((e) => setMessage(e.message));
-  }, [storyId]);
-
-  useEffect(() => {
-    load();
-  }, [load]);
-
-  useEffect(() => {
-    if (selectedId === null && tree.length > 0) setSelectedId(tree[0].id);
-  }, [tree, selectedId]);
-
-  const refresh = useCallback(() => {
-    api
-      .nodes(storyId)
-      .then(setTree)
-      .catch((e) => setMessage(e.message));
-  }, [storyId]);
-
-  const addRoot = async () => {
-    try {
-      await api.createNode(storyId, { nodeType: newKind, title: newTitle });
-      setNewTitle('');
-      setShowAddRoot(false);
-      refresh();
-    } catch (e) {
-      setMessage((e as Error).message);
-    }
-  };
+  const {
+    story,
+    tree,
+    rootKinds,
+    selectedId,
+    setSelectedId,
+    message,
+    setMessage,
+    canWrite,
+    canPublish,
+    showTree,
+    toggleTree,
+    panelTab,
+    selectPanelTab,
+    showAddRoot,
+    openAddRoot,
+    newTitle,
+    setNewTitle,
+    newKind,
+    setNewKind,
+    addRoot,
+    refresh,
+  } = useWorkspace({ storyId, myRole });
 
   if (!story) {
     return (
@@ -128,21 +48,6 @@ export default function Workspace({ storyId, myRole }: WorkspaceProps) {
   if (myRole === 'VIEWER') {
     return <ReaderView story={story} />;
   }
-
-  const toggleTree = () => {
-    setShowTree((prev) => {
-      writePref('storyforge:show-tree', !prev);
-      return !prev;
-    });
-  };
-
-  const selectPanelTab = (tab: PanelTab) => {
-    setPanelTab((prev) => {
-      const next = prev === tab ? null : tab;
-      writeStringPref('storyforge:panel-tab', next);
-      return next;
-    });
-  };
 
   return (
     <div className="workspace">
@@ -166,7 +71,7 @@ export default function Workspace({ storyId, myRole }: WorkspaceProps) {
             <div className="card add-form">
               <input value={newTitle} onChange={(e) => setNewTitle(e.target.value)} placeholder="Title" />
               <select value={newKind} onChange={(e) => setNewKind(e.target.value as NodeKind)}>
-                {ROOT_KINDS[story.storyType].map((k) => (
+                {rootKinds.map((k) => (
                   <option key={k} value={k}>
                     {k}
                   </option>

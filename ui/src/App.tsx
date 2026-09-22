@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react';
 import { api, currentUserId, setCurrentUserId } from './api/client';
 import type { Me } from './api/types';
-import StoryList from './components/StoryList';
-import Workspace from './components/Workspace';
+import StoryList from './pages/StoryList';
+import Workspace from './pages/Workspace';
 import Header from './components/Header';
 
 const DEMO_USERS = [

@@ -19,7 +19,7 @@ export interface ExtractionHandlers {
   dismissError: () => void;
 }
 
-function keyOf(item: CharacterSuggestion | LoreSuggestion): string {
+export function suggestionKey(item: CharacterSuggestion | LoreSuggestion): string {
   return 'name' in item ? item.name : item.title;
 }
 
@@ -51,7 +51,7 @@ export function useExtraction(
 
   const items = resp
     ? (kind === 'characters' ? resp.characters : resp.lore).filter(
-        (item) => !added.has(keyOf(item)),
+        (item) => !added.has(suggestionKey(item)),
       )
     : [];
 
@@ -79,7 +79,7 @@ export function useExtraction(
   const addItem = useCallback(async (item: CharacterSuggestion | LoreSuggestion) => {
     try {
       await onAddRef.current(item);
-      setAdded((prev) => new Set(prev).add(keyOf(item)));
+      setAdded((prev) => new Set(prev).add(suggestionKey(item)));
     } catch (e) {
       setErr((e as Error).message);
     }
@@ -94,51 +94,4 @@ export function useExtraction(
   const dismissError = useCallback(() => setErr(null), []);
 
   return { resp, busy, err, items, extract, addItem, addAll, dismissError };
-}
-
-export function ExtractionResults({ state, kind }: { state: ExtractionHandlers; kind: ExtractionKind }) {
-  const { resp, busy, err, items } = state;
-  if (!resp && !err) return null;
-
-  const addLabel = kind === 'characters' ? 'Add character' : 'Add lore';
-
-  return (
-    <div className="card tight suggest-results">
-      {err && (
-        <div className="banner error" onClick={state.dismissError}>
-          {err}
-        </div>
-      )}
-      {resp && !resp.enabled && (
-        <div className="muted small">
-          AI extraction is disabled on the server (storyforge.extraction.enabled = false).
-        </div>
-      )}
-      {resp && resp.enabled && items.length === 0 && (
-        <div className="muted small">
-          {busy ? 'Extracting…' : 'No new suggestions.'}
-        </div>
-      )}
-      {resp && resp.enabled && items.length > 0 && (
-        <ul className="plain">
-          {items.map((item) => (
-            <li key={keyOf(item)} className="card tight">
-              <strong>{keyOf(item)}</strong>
-              {'bio' in item && item.bio && <p className="muted small">{item.bio}</p>}
-              {'category' in item && item.category && <span className="badge">{item.category}</span>}
-              {'body' in item && item.body && <p className="muted small">{item.body}</p>}
-              <button className="small primary" onClick={() => state.addItem(item)}>
-                {addLabel}
-              </button>
-            </li>
-          ))}
-        </ul>
-      )}
-      {resp && resp.enabled && items.length > 0 && (
-        <button className="small linkish" onClick={state.addAll}>
-          Add all
-        </button>
-      )}
-    </div>
-  );
 }

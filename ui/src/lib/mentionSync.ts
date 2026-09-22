@@ -1,4 +1,8 @@
-import type { MentionItem } from './MentionList';
+export interface MentionItem {
+  id: string;
+  label: string;
+  type: 'character' | 'lore';
+}
 
 export const SYNC_MENTIONS_EVENT = 'storyforge:sync-mentions';
 export const SYNC_MENTIONS_DONE_EVENT = 'storyforge:sync-mentions-done';
