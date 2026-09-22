@@ -1,4 +1,4 @@
-import type { ApiErrorPayload, JsonValue, NodeFull } from './types';
+import type { AdminUser, ApiErrorPayload, JsonValue, LoginResponse, Me, NodeFull, UserInfo, UserSettings } from './types';
 
 export class ApiError extends Error {
   status: number;
@@ -13,22 +13,26 @@ export class ApiError extends Error {
   }
 }
 
-const USER_KEY = 'storyforge.userId';
+const TOKEN_KEY = 'storyforge.token';
 
-export function currentUserId(): number {
-  const raw = localStorage.getItem(USER_KEY);
-  const id = raw ? Number(raw) : 1;
-  return Number.isFinite(id) ? id : 1;
+export function authToken(): string | null {
+  return localStorage.getItem(TOKEN_KEY);
 }
 
-export function setCurrentUserId(id: number): void {
-  localStorage.setItem(USER_KEY, String(id));
+export function setAuthToken(token: string | null): void {
+  if (token) {
+    localStorage.setItem(TOKEN_KEY, token);
+  } else {
+    localStorage.removeItem(TOKEN_KEY);
+  }
 }
 
 async function request(method: string, path: string, body?: unknown, signal?: AbortSignal): Promise<any> {
-  const headers: Record<string, string> = {
-    'X-User-Id': String(currentUserId()),
-  };
+  const headers: Record<string, string> = {};
+  const token = authToken();
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
   if (body !== undefined) {
     headers['Content-Type'] = 'application/json';
   }
@@ -48,13 +52,40 @@ async function request(method: string, path: string, body?: unknown, signal?: Ab
     }
   }
   if (!res.ok) {
+    if (res.status === 401 && path !== '/api/auth/login') {
+      setAuthToken(null);
+      if (!window.location.hash.startsWith('#/login')) {
+        window.location.hash = '#/login';
+      }
+    }
     throw new ApiError(res.status, payload ?? { error: { code: 'UNKNOWN', message: res.statusText } });
   }
   return payload;
 }
 
 export const api = {
-  me: () => request('GET', '/api/me'),
+  login: (email: string, password: string): Promise<LoginResponse> =>
+    request('POST', '/api/auth/login', { email, password }),
+  logout: (): Promise<void> => request('POST', '/api/auth/logout'),
+  me: (): Promise<Me> => request('GET', '/api/me'),
+
+  updateProfile: (body: { email?: string; displayName?: string }): Promise<UserInfo> =>
+    request('PUT', '/api/me', body),
+  changePassword: (body: { currentPassword: string; newPassword: string }): Promise<void> =>
+    request('POST', '/api/me/password', body),
+  getSettings: (): Promise<UserSettings> => request('GET', '/api/me/settings'),
+  saveSettings: (body: Partial<UserSettings>): Promise<UserSettings> =>
+    request('PUT', '/api/me/settings', body),
+
+  adminUsers: (): Promise<AdminUser[]> => request('GET', '/api/admin/users'),
+  adminCreateUser: (body: { email: string; displayName: string; password: string; systemRole?: string }) =>
+    request('POST', '/api/admin/users', body),
+  adminUpdateUser: (userId: number, body: Partial<Pick<AdminUser, 'email' | 'displayName' | 'systemRole' | 'enabled'>>) =>
+    request('PUT', `/api/admin/users/${userId}`, body),
+  adminResetPassword: (userId: number, password: string) =>
+    request('POST', `/api/admin/users/${userId}/password`, { password }),
+  adminDeleteUser: (userId: number): Promise<void> => request('DELETE', `/api/admin/users/${userId}`),
+
   stories: () => request('GET', '/api/stories'),
   getStory: (storyId: number) => request('GET', `/api/stories/${storyId}`),
   createStory: (body: { title: string; storyType: string } & Record<string, JsonValue>) =>

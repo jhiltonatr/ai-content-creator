@@ -1,5 +1,13 @@
 export type StoryType = 'NOVEL' | 'RPG' | 'SCRIPT';
 export type Role = 'OWNER' | 'COLLABORATOR' | 'EDITOR' | 'VIEWER';
+export type SystemRole = 'USER' | 'ADMIN';
+export type Theme = 'LIGHT' | 'DARK';
+
+export interface UserSettings {
+  language: string | null;
+  theme: Theme;
+}
+
 export type NodeKind = 'BOOK' | 'CHAPTER' | 'SCENE' | 'EPISODE' | 'ACT' | 'QUEST' | 'SUBQUEST' | 'STEP' | 'BEAT';
 export type NodeStatus = 'DRAFT' | 'DONE';
 
@@ -7,6 +15,21 @@ export interface UserInfo {
   id: number;
   email: string;
   displayName: string;
+  systemRole: SystemRole;
+}
+
+export interface LoginResponse {
+  token: string;
+  user: UserInfo;
+}
+
+export interface AdminUser {
+  id: number;
+  email: string;
+  displayName: string;
+  systemRole: SystemRole;
+  enabled: boolean;
+  createdAt: string;
 }
 
 export interface StoryRole {

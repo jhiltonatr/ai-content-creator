@@ -2,14 +2,13 @@ import type { Me } from '../api/types';
 
 interface HeaderProps {
   me: Me | null;
-  userId: number;
-  demoUsers: { id: number; label: string }[];
-  onSwitchUser: (id: number) => void;
+  isAdmin: boolean;
   inStory: boolean;
   onHome: () => void;
+  onLogout: () => void;
 }
 
-export default function Header({ me, userId, demoUsers, onSwitchUser, inStory, onHome }: HeaderProps) {
+export default function Header({ me, isAdmin, inStory, onHome, onLogout }: HeaderProps) {
   return (
     <header className="header">
       <div className="header-title" onClick={onHome} role="button">
@@ -23,15 +22,23 @@ export default function Header({ me, userId, demoUsers, onSwitchUser, inStory, o
         {me && (
           <span className="who">
             {me.user.displayName} ({me.user.email})
+            {isAdmin && <span className="tag">admin</span>}
           </span>
         )}
-        <select value={userId} onChange={(e) => onSwitchUser(Number(e.target.value))} title="Act as user (MVP auth)">
-          {demoUsers.map((u) => (
-            <option key={u.id} value={u.id}>
-              {u.label}
-            </option>
-          ))}
-        </select>
+        <button className="small" onClick={() => (window.location.hash = '#/profile')}>
+          Profile
+        </button>
+        <button className="small" onClick={() => (window.location.hash = '#/settings')}>
+          Settings
+        </button>
+        {isAdmin && (
+          <button className="small" onClick={() => (window.location.hash = '#/admin')}>
+            Admin
+          </button>
+        )}
+        <button className="small" onClick={onLogout}>
+          Sign out
+        </button>
       </div>
     </header>
   );

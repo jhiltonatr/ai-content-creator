@@ -27,6 +27,9 @@ Supported story types:
 - **Editor** — draft read + feedback access (proofreading); cannot edit content.
 - **Viewer/Follower** — read-only access to published content; never drafts.
 - **Release** — a versioned publish snapshot listing which nodes are public.
+- **System role** — site-wide role on a User: `USER` | `ADMIN`. Distinct from the
+  story-level membership `role` (OWNER/COLLABORATOR/EDITOR/VIEWER). Admins manage users;
+  there is no self-registration (accounts are admin-created).
 
 ## Architecture
 
@@ -73,8 +76,12 @@ Link   // typed, polymorphic relation
 
 Tag            // cross-cutting labels (many-to-many to any entity)
 
-User           // identity (auth handled by external provider)
-  id, email, displayName, createdAt
+User           // account managed by admins; identity via bearer-token login
+  id, email, displayName, enabled, systemRole (USER|ADMIN),
+  passwordHash (bcrypt), createdAt, settings (jsonb)  // personal prefs: default language, theme
+
+AuthToken      // opaque bearer login sessions (login/logout)
+  id, userId, tokenHash (sha-256 of token), expiresAt
 
 Membership     // user ↔ story tenancy gate
   id, storyId, userId, role    // owner | collaborator | editor | viewer
@@ -127,6 +134,9 @@ Rules:
 4. **Generic node graph + archetype config** — story types are config, not schema.
 5. **Role-based multi-tenancy** — story-level memberships with roles (owner | collaborator | editor | viewer); Core is the enforcement point on every query; drafts never leak to viewers.
 6. **Publishing = Release snapshot** — `Node.status` (draft|done) tracks authoring state; public visibility is a versioned `Release.nodeIds` snapshot (the seam for future revisions).
+7. **Admin-created accounts + bearer-token login** — no self-registration; admins manage users. Sessions are opaque bearer tokens (SHA-256-hashed in `auth_tokens`, 7-day TTL). `X-User-Id` header trust is dev/test-only (`app.trust-x-user-id=true`). Disabling a user or resetting their password revokes all their tokens; the last enabled admin and self-demotion/disable/delete are protected.
+8. **System role vs membership role** — `systemRole` (`USER`|`ADMIN`) is site-wide on User; story-level `Role` (`OWNER/COLLABORATOR/EDITOR/VIEWER`) remains the tenancy gate. Memberships no longer auto-create users.
+9. **Personal settings as JSONB** — per-user preferences (default language, theme LIGHT/DARK) live in `users.settings` (JSONB), exposed via `GET/PUT /api/me/settings`; the UI applies the theme via `data-theme` CSS-variable overrides so future themes are config, not schema. Profile self-service (`PUT /api/me`, `POST /api/me/password`) verifies the current password and revokes all that user's sessions.
 
 ## Open questions / next steps
 
@@ -134,10 +144,10 @@ Rules:
 - Java service framework specifics (Spring Boot), API style (REST vs gRPC).
 - Node revisioning/versioning & autosave strategy.
 - Event bus choice (Kafka/RabbitMQ) vs simpler webhooks.
-- Auth, multi-user collaboration, project sharing.
+- Multi-user live collaboration (joint editing), per-node ACL overrides.
 
 ## Working notes
 
-- Repo has no commits yet; do not commit unless asked.
+- Repo already has commits; do not commit unless asked.
 - No tests/lint commands exist yet — verify with the user before assuming a test framework.
 - Keep the domain vocabulary above consistent in code naming and docs.

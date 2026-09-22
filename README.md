@@ -50,9 +50,10 @@ mvn -f backend/pom.xml test
 ```
 
 Covers the node graph + optimistic concurrency (`NodeConcurrencyTest`), the
-permission matrix / release gating (`TenancyTest`), and the AI analysis endpoint —
+permission matrix / release gating (`TenancyTest`), the AI analysis endpoint —
 owner access, viewer denial, and backend-unavailable 503 (`AnalysisTest`,
-`AnalysisUnavailableTest`) — against an in-memory H2.
+`AnalysisUnavailableTest`) — plus auth (`AuthTest`, `AdminUserTest`) and the
+untrusted-header security posture (`AuthSecurityTest`), against an in-memory H2.
 
 ## Run the UI
 
@@ -109,15 +110,44 @@ message. See `notes-ai-syntax-highlighting.md` for the offsets/decoration contra
 
 ## Auth (MVP)
 
-Authentication is stubbed: the current user is taken from the `X-User-Id` HTTP header
-(lookups fall back to demo user 1). The UI ships a user switcher (Alice / Bob / Carol)
-so you can exercise the role matrix (owner, collaborator, editor, viewer).
+Login uses opaque bearer tokens: `POST /api/auth/login` with email + password returns a
+token (7-day TTL) that is sent on subsequent calls as `Authorization: Bearer <token>`.
+The token is hashed (SHA-256) in `auth_tokens`; logout revokes it. Passwords are bcrypt
+hashes; the user record has a `system_role` (`USER` | `ADMIN`) distinct from the
+story-level membership `role`.
+
+Demo login: `alice@example.com` / `storyforge` (Alice is seeded as an **admin**; bob and
+carol share the same demo password). There is no self-registration — accounts are created
+by an administrator, and disabling an account or resetting its password revokes that user's
+tokens.
+
+Administrators manage users under `/api/admin/users` and in the UI via the **Admin** link
+(create/edit/disable/reset password/delete). An admin cannot demote/disable/delete
+themselves, the last enabled admin is protected, and a user who owns stories can only be
+disabled — deleting them returns `409`.
+
+Users manage themselves under **Profile** (email, display name, change password — verifying
+the current password and revoking all sessions) and **Settings** (default language for new
+stories, and the look & feel — Light/Dark, applied live and persisted per user in
+`users.settings` as JSONB).
+
+Dev/test only: when `app.trust-x-user-id=true`, requests with an `X-User-Id` header are
+honoured without a token (this is what the backend test suite uses). It is **off** in the
+default `application.yml`.
 
 ## API surface (main endpoints)
 
 | Endpoint | Description |
 | --- | --- |
+| `POST /api/auth/login` · `POST /api/auth/logout` | Bearer-token login / revoke |
 | `GET /api/me` | Current user + story memberships |
+| `PUT /api/me` | Update own profile (email, display name) |
+| `POST /api/me/password` | Change own password (verifies current, revokes all tokens) |
+| `GET/PUT /api/me/settings` | Personal settings (default language, theme) |
+| `GET/POST /api/admin/users` | Admin: list / create users |
+| `PUT /api/admin/users/{id}` | Admin: update identity, role, enabled |
+| `POST /api/admin/users/{id}/password` | Admin: reset password (revokes tokens) |
+| `DELETE /api/admin/users/{id}` | Admin: delete user |
 | `GET/POST /api/stories` | List / create stories |
 | `GET /api/stories/{id}/nodes` | Node tree (root summaries) |
 | `GET/POST /api/stories/{id}/nodes[/{nodeId}]` | Node detail / create |
