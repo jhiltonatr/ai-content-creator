@@ -240,6 +240,21 @@ Note: a codeBlock pasted before these fixes may have left a half-mention / dropp
 body behind (e.g. "@Elian n is a bad person.", "@Marrow ow went to ..."); those stored docs
 need a manual rewrite, not a migration.
 
+## Findings must map to the right block (2026-09-22)
+
+Plain multi-line pastes land in ONE prose paragraph containing `\n\n`/double-hardBreak runs;
+the model then has to index one long string across paragraph boundaries and its char offsets
+drift (e.g. it targeted "she are bad" but the highlight painted " person." at the end of the
+previous paragraph). Fix: `RichEditor` normalizes such single paragraphs into real paragraph
+nodes — on load (`normalizeContent` → `splitParagraphNodes`, handles `\n\n` inside a text
+node as well as consecutive `hardBreak`s) and on paste (`editorProps.transformPasted` →
+`splitPmPastedFragment`). Each paragraph becomes a short standalone string; backend
+`paragraph` indices and `from`/`to` offsets are then local to one block. Defensively the
+frontend also clamps out-of-range offsets instead of mis-painting.
+
+Semantics preserved: a single `\n`/hardBreak stays inside its paragraph (shift-enter); only a
+blank line (2+ breaks) starts a new paragraph. Existing split docs are untouched.
+
 ## Open questions
 
 - Re-introducing the FastAPI AI service (per AGENTS.md) vs keeping Core→llama direct; batching:

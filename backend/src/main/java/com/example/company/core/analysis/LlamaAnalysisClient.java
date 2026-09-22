@@ -252,7 +252,7 @@ public class LlamaAnalysisClient implements AnalysisClient {
         String lore = request.lore().isEmpty() ? "none" : String.join(", ", request.lore());
         return """
                 You are an expert AI copyeditor for a %s story.  The author writes in %s.
-                Analyze the provided text for grammatical errors, spelling mistakes, punctuation issues, and 
+                Analyze the provided text for grammatical errors, spelling mistakes, punctuation issues, and
                 stylistic improvements.
                 
                 Context:
