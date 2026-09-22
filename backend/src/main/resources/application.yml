@@ -20,6 +20,14 @@ server:
 app:
   demo-user-id: 1
 
+storyforge:
+  analysis:
+    base-url: http://localhost:8081
+    model: mo-shakib/clearwriter
+    timeout-ms: 180000
+    max-paragraphs: 30
+    max-paragraph-chars: 2000
+
 logging:
   level:
     org.springframework.jdbc.core: warn

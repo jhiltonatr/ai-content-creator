@@ -49,8 +49,10 @@ $env:JAVA_HOME='C:\Users\jhilt\.jdks\ms-25.0.4.1'
 mvn -f backend/pom.xml test
 ```
 
-Covers the node graph + optimistic concurrency (`NodeConcurrencyTest`) and the
-permission matrix / release gating (`TenancyTest`) against an in-memory H2.
+Covers the node graph + optimistic concurrency (`NodeConcurrencyTest`), the
+permission matrix / release gating (`TenancyTest`), and the AI analysis endpoint —
+owner access, viewer denial, and backend-unavailable 503 (`AnalysisTest`,
+`AnalysisUnavailableTest`) — against an in-memory H2.
 
 ## Run the UI
 
@@ -68,6 +70,39 @@ Production build + preview:
 npm run build       # tsc + vite build → ui/dist
 npm run preview
 ```
+
+## AI syntax analysis (optional)
+
+The editor can highlight style/grammar findings live. `RichEditor` posts the **visible**
+portion of the current doc (`{"doc": <TipTap JSON with only on-screen blocks>}`) to
+`/api/stories/{id}/nodes/{nodeId}/analyze`, keeping payloads, LLM load, and tokens down; it
+re-runs on edit and on scroll to follow the view. Core enforces draft access, then calls a
+local LLM over the OpenAI-compatible chat endpoint. If the LLM backend is unreachable the UI
+falls back to built-in heuristic highlighting, so the editor still works offline.
+
+Run llama on port **8081** (8080 is the backend). With Ollama:
+
+```powershell
+$env:OLLAMA_HOST='127.0.0.1:8081'
+ollama pull mo-shakib/clearwriter
+ollama serve
+```
+
+Or with llama.cpp: `llama-server -p 8081`. The endpoint/credentials are configurable:
+
+```yaml
+storyforge:
+  analysis:
+    base-url: http://localhost:8081   # OpenAI-compatible /v1/chat/completions
+    model: mo-shakib/clearwriter
+    timeout-ms: 180000                # allows cold llama model load; retried once on failure
+    max-paragraphs: 30                # per request
+    max-paragraph-chars: 2000         # per paragraph
+```
+
+Returns `{nodeId, storyId, model, analyzedAt, paragraphs[], findings[]}`; findings carry a
+zero-based paragraph index, char offsets, severity (`info|warn|danger`), category, and a
+message. See `notes-ai-syntax-highlighting.md` for the offsets/decoration contract.
 
 ## Auth (MVP)
 
@@ -89,6 +124,7 @@ so you can exercise the role matrix (owner, collaborator, editor, viewer).
 | `PUT /api/stories/{id}/nodes/{nodeId}/script` | Script block (SCENE in SCRIPT stories) |
 | `PUT /api/stories/{id}/nodes/{nodeId}/meta` | Free-form meta JSON |
 | `DELETE /api/stories/{id}/nodes/{nodeId}` | Delete subtree |
+| `POST /api/stories/{id}/nodes/{nodeId}/analyze` | AI prose analysis (draft-access) |
 | `GET/POST /api/stories/{id}/characters` · `/lore` · `/members` · `/releases` | Supporting panels |
 
 All state mutations on a node carry `expectedVersion` (optimistic locking) and optional

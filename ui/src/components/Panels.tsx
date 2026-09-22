@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { api } from '../api/client';
 import type { Character, Lore, Membership, Release, Role } from '../api/types';
+import { emitCatalogChanged } from '../catalog';
 
 interface PanelsProps {
   storyId: number;
@@ -46,6 +47,7 @@ function CharactersPanel({ storyId, canWrite }: { storyId: number; canWrite: boo
       setName('');
       setBio('');
       load();
+      emitCatalogChanged(storyId);
     } catch (e) {
       setMsg((e as Error).message);
     }
@@ -68,6 +70,7 @@ function CharactersPanel({ storyId, canWrite }: { storyId: number; canWrite: boo
                     try {
                       await api.updateCharacter(storyId, c.id, { name: c.name, bio: nextBio });
                       load();
+                      emitCatalogChanged(storyId);
                     } catch (e) {
                       setMsg((e as Error).message);
                     }
@@ -113,6 +116,7 @@ function LorePanel({ storyId, canWrite }: { storyId: number; canWrite: boolean }
       setCategory('');
       setBody('');
       load();
+      emitCatalogChanged(storyId);
     } catch (e) {
       setMsg((e as Error).message);
     }

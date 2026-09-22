@@ -24,6 +24,7 @@ public class ApiException extends RuntimeException {
         UNAUTHORIZED,
         FORBIDDEN,
         NOT_FOUND,
-        CONFLICT
+        CONFLICT,
+        SERVICE_UNAVAILABLE
     }
 }

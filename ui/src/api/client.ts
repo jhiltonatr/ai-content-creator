@@ -25,7 +25,7 @@ export function setCurrentUserId(id: number): void {
   localStorage.setItem(USER_KEY, String(id));
 }
 
-async function request(method: string, path: string, body?: unknown): Promise<any> {
+async function request(method: string, path: string, body?: unknown, signal?: AbortSignal): Promise<any> {
   const headers: Record<string, string> = {
     'X-User-Id': String(currentUserId()),
   };
@@ -36,6 +36,7 @@ async function request(method: string, path: string, body?: unknown): Promise<an
     method,
     headers,
     body: body === undefined ? undefined : JSON.stringify(body),
+    signal,
   });
   const text = await res.text();
   let payload: any = null;
@@ -72,6 +73,9 @@ export const api = {
   updateScript: (storyId: number, nodeId: number, body: Record<string, unknown>) =>
     request('PUT', `/api/stories/${storyId}/nodes/${nodeId}/script`, body),
   deleteNode: (storyId: number, nodeId: number) => request('DELETE', `/api/stories/${storyId}/nodes/${nodeId}`),
+
+  analyzeNode: (storyId: number, nodeId: number, doc: unknown, signal?: AbortSignal) =>
+    request('POST', `/api/stories/${storyId}/nodes/${nodeId}/analyze`, { doc }, signal),
 
   characters: (storyId: number) => request('GET', `/api/stories/${storyId}/characters`),
   createCharacter: (storyId: number, body: Record<string, unknown>) =>

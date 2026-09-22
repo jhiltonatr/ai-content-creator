@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { api, ApiError } from '../api/client';
 import type { Character, Lore, NodeFull, NodeStatus, ScriptBlock, StoryType } from '../api/types';
+import { CATALOG_CHANGED_EVENT } from '../catalog';
 import MetadataBar from './MetadataBar';
 import type { MentionItem } from './MentionList';
 import RichEditor, { type TipTapDoc } from './RichEditor';
@@ -53,6 +54,17 @@ export default function NodeEditor({
     nodeRef.current = node;
   }, [node]);
 
+  const refreshCatalog = useCallback(() => {
+    api
+      .characters(storyId)
+      .then(setCharacters)
+      .catch(() => undefined);
+    api
+      .lore(storyId)
+      .then(setLore)
+      .catch(() => undefined);
+  }, [storyId]);
+
   const load = useCallback(
     (nodeIdToLoad: number) => {
       api
@@ -69,21 +81,25 @@ export default function NodeEditor({
           setEditorKey(n.id + n.version);
         })
         .catch((e) => setError(e.message));
-      api
-        .characters(storyId)
-        .then(setCharacters)
-        .catch(() => undefined);
-      api
-        .lore(storyId)
-        .then(setLore)
-        .catch(() => undefined);
+      refreshCatalog();
     },
-    [storyId],
+    [storyId, refreshCatalog],
   );
 
   useEffect(() => {
     load(nodeId);
   }, [nodeId, load]);
+
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const detail = (e as CustomEvent<{ storyId?: number }>).detail;
+      if (!detail || detail.storyId === undefined || detail.storyId === storyId) {
+        refreshCatalog();
+      }
+    };
+    window.addEventListener(CATALOG_CHANGED_EVENT, handler);
+    return () => window.removeEventListener(CATALOG_CHANGED_EVENT, handler);
+  }, [storyId, refreshCatalog]);
 
   const flush = useCallback(async () => {
     const pending = pendingRef.current;
@@ -284,6 +300,8 @@ export default function NodeEditor({
           onChange={canWrite ? onBodyChange : () => undefined}
           readOnly={!canWrite}
           mentions={mentions}
+          storyId={storyId}
+          nodeId={node.id}
         />
       )}
     </div>
