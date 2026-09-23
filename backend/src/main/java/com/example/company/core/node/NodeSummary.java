@@ -10,5 +10,6 @@ public record NodeSummary(long id,
                           String title,
                           NodeStatus status,
                           int sortOrder,
+                          int wordCount,
                           List<NodeSummary> children) {
 }

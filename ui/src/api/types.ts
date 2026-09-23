@@ -65,6 +65,7 @@ export interface NodeSummary {
   title: string;
   status: NodeStatus;
   sortOrder: number;
+  wordCount: number;
   children: NodeSummary[];
 }
 
@@ -98,6 +99,7 @@ export interface NodeFull {
   createdAt: string;
   updatedAt: string;
   updatedBy: number;
+  wordCount: number;
 }
 
 export interface Character {

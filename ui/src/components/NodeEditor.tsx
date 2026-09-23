@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import type { StoryType } from '../api/types';
 import { useNodeEditor } from '../hooks/useNodeEditor';
 import MetadataBar from './MetadataBar';
@@ -12,6 +13,7 @@ interface NodeEditorProps {
   canWrite: boolean;
   onChanged: () => void;
   onDelete: () => void;
+  onWordCount?: (nodeId: number, count: number) => void;
 }
 
 export default function NodeEditor({
@@ -21,6 +23,7 @@ export default function NodeEditor({
   canWrite,
   onChanged,
   onDelete,
+  onWordCount,
 }: NodeEditorProps) {
   const {
     node,
@@ -37,6 +40,7 @@ export default function NodeEditor({
     saving,
     savedAt,
     editorKey,
+    wordCount,
     onBodyChange,
     onScriptChange,
     saveMetadata,
@@ -44,6 +48,11 @@ export default function NodeEditor({
     keepMine,
     remove,
   } = useNodeEditor({ storyId, nodeId, onChanged, onDelete });
+
+  useEffect(() => {
+    if (!node) return;
+    onWordCount?.(node.id, wordCount);
+  }, [node, wordCount, onWordCount]);
 
   if (!node) {
     return <p className="muted">Loading node…</p>;

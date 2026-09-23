@@ -114,6 +114,9 @@ function NodeItem({ node, selectedId, onSelect, storyType, storyId, canWrite, on
       >
         <span className="kind-tag">{node.kind === 'SCENE' || node.status === 'DONE' ? '' : node.kind}</span>
         <span className="node-title">{node.title}</span>
+        <span className="word-count" title="Words in this node">
+          {node.wordCount ?? 0}
+        </span>
         <span className="status-dot" title={node.status} />
         {canWrite && (
           <button className="del" onClick={remove} title="Delete">

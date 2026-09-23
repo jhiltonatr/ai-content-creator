@@ -21,5 +21,6 @@ public record NodeFull(long id,
                        String lastChangeId,
                        Instant createdAt,
                        Instant updatedAt,
-                       long updatedBy) {
+                       long updatedBy,
+                       int wordCount) {
 }

@@ -3,6 +3,7 @@ import { api, ApiError } from '../api/client';
 import type { Character, Lore, NodeFull, NodeStatus, ScriptBlock } from '../api/types';
 import { CATALOG_CHANGED_EVENT } from '../lib/catalog';
 import type { TipTapDoc } from '../lib/tiptap';
+import { countDocWords, countScriptWords } from '../lib/words';
 
 const AUTO_SAVE_MS = 1200;
 
@@ -32,6 +33,8 @@ export function useNodeEditor({ storyId, nodeId, onChanged, onDelete }: UseNodeE
   const [saving, setSaving] = useState(false);
   const [savedAt, setSavedAt] = useState<string | null>(null);
   const [editorKey, setEditorKey] = useState<number>(nodeId);
+  const [bodyWords, setBodyWords] = useState(0);
+  const [scriptWords, setScriptWords] = useState(0);
 
   const nodeRef = useRef<NodeFull | null>(null);
   const pendingRef = useRef<PendingSave | null>(null);
@@ -63,6 +66,8 @@ export function useNodeEditor({ storyId, nodeId, onChanged, onDelete }: UseNodeE
           setTitle(n.title);
           setStatus(n.status);
           setScriptDraft(n.script ?? null);
+          setBodyWords(countDocWords(n.body as TipTapDoc | null));
+          setScriptWords(countScriptWords(n.script));
           pendingRef.current = null;
           setConflict(null);
           setSavedAt(null);
@@ -144,6 +149,7 @@ export function useNodeEditor({ storyId, nodeId, onChanged, onDelete }: UseNodeE
   const onBodyChange = useCallback(
     (doc: TipTapDoc | null) => {
       if (!doc) return;
+      setBodyWords(countDocWords(doc));
       const changeId = pendingRef.current?.changeId ?? crypto.randomUUID();
       pendingRef.current = { kind: 'body', changeId, doc };
       scheduleDebounced();
@@ -154,6 +160,7 @@ export function useNodeEditor({ storyId, nodeId, onChanged, onDelete }: UseNodeE
   const onScriptChange = useCallback(
     (script: ScriptBlock | null) => {
       setScriptDraft(script);
+      setScriptWords(countScriptWords(script));
       const changeId = pendingRef.current?.changeId ?? crypto.randomUUID();
       pendingRef.current = { kind: 'script', changeId, script };
       scheduleDebounced();
@@ -200,6 +207,8 @@ export function useNodeEditor({ storyId, nodeId, onChanged, onDelete }: UseNodeE
     setTitle(conflict.title);
     setStatus(conflict.status);
     setScriptDraft(conflict.script ?? null);
+    setBodyWords(countDocWords(conflict.body as TipTapDoc | null));
+    setScriptWords(countScriptWords(conflict.script));
     pendingRef.current = null;
     setConflict(null);
     setSavedAt(null);
@@ -245,6 +254,7 @@ export function useNodeEditor({ storyId, nodeId, onChanged, onDelete }: UseNodeE
     saving,
     savedAt,
     editorKey,
+    wordCount: bodyWords + scriptWords,
     onBodyChange,
     onScriptChange,
     saveMetadata,

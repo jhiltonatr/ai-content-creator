@@ -203,6 +203,9 @@ public class NodeRepository {
     }
 
     private NodeFull map(java.sql.ResultSet rs, int rowNum) throws java.sql.SQLException {
+        tools.jackson.databind.JsonNode body = json.parse(rs.getString("body"));
+        tools.jackson.databind.JsonNode script = json.parse(rs.getString("script"));
+        tools.jackson.databind.JsonNode meta = json.parse(rs.getString("meta"));
         return new NodeFull(
                 rs.getLong("id"),
                 rs.getLong("story_id"),
@@ -212,13 +215,14 @@ public class NodeRepository {
                 rs.getInt("sort_order"),
                 rs.getString("language"),
                 NodeStatus.valueOf(rs.getString("status")),
-                json.parse(rs.getString("body")),
-                json.parse(rs.getString("script")),
-                json.parse(rs.getString("meta")),
+                body,
+                script,
+                meta,
                 rs.getLong("version"),
                 rs.getString("last_change_id"),
                 rs.getTimestamp("created_at").toInstant(),
                 rs.getTimestamp("updated_at").toInstant(),
-                rs.getLong("updated_by"));
+                rs.getLong("updated_by"),
+                WordCounter.count(body, script));
     }
 }

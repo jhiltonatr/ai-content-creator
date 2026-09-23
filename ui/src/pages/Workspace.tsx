@@ -1,14 +1,35 @@
+import { useCallback, useEffect, useRef, useState } from 'react';
 import NodeEditor from '../components/NodeEditor';
 import NodeTree from '../components/NodeTree';
 import Panels from '../components/panels/Panels';
+import ProductivityBar from '../components/ProductivityBar';
 import { useWorkspace } from '../hooks/useWorkspace';
+import { useWritingStats } from '../hooks/useWritingStats';
 import { PANEL_TABS } from '../lib/panels';
-import type { NodeKind, Role } from '../api/types';
+import type { NodeKind, NodeSummary, Role } from '../api/types';
 import ReaderView from './ReaderView';
 
 interface WorkspaceProps {
   storyId: number;
   myRole: Role | null;
+}
+
+function sumTree(nodes: NodeSummary[]): number {
+  let total = 0;
+  for (const n of nodes) {
+    total += n.wordCount ?? 0;
+    total += sumTree(n.children);
+  }
+  return total;
+}
+
+function findNode(nodes: NodeSummary[], id: number): NodeSummary | null {
+  for (const n of nodes) {
+    if (n.id === id) return n;
+    const found = findNode(n.children, id);
+    if (found) return found;
+  }
+  return null;
 }
 
 export default function Workspace({ storyId, myRole }: WorkspaceProps) {
@@ -36,6 +57,34 @@ export default function Workspace({ storyId, myRole }: WorkspaceProps) {
     refresh,
   } = useWorkspace({ storyId, myRole });
 
+  const stats = useWritingStats();
+  const [liveNodeCount, setLiveNodeCount] = useState<number | null>(null);
+  const baselineRef = useRef<{ nodeId: number; count: number } | null>(null);
+
+  const onNodeWordCount = useCallback(
+    (nodeId: number, count: number) => {
+      setLiveNodeCount(count);
+      const base = baselineRef.current;
+      if (base && base.nodeId === nodeId && count > base.count) {
+        stats.add(count - base.count);
+      }
+      baselineRef.current = { nodeId, count };
+    },
+    [stats.add],
+  );
+
+  useEffect(() => {
+    setLiveNodeCount(null);
+  }, [selectedId]);
+
+  const storyTreeWords = sumTree(tree);
+  const currentSaved =
+    selectedId === null ? 0 : findNode(tree, selectedId)?.wordCount ?? 0;
+  const storyWords =
+    selectedId !== null && liveNodeCount !== null
+      ? storyTreeWords - currentSaved + liveNodeCount
+      : storyTreeWords;
+
   if (!story) {
     return (
       <div className="page">
@@ -56,6 +105,14 @@ export default function Workspace({ storyId, myRole }: WorkspaceProps) {
           {message}
         </div>
       )}
+      <ProductivityBar
+        storyWords={storyWords}
+        nodeWords={selectedId !== null ? liveNodeCount : null}
+        sessionWords={stats.sessionWords}
+        dailyWords={stats.dailyWords}
+        goal={stats.goal}
+        onGoalChange={stats.setGoal}
+      />
       <div className="workspace-row">
         <aside className={`col tree-col${showTree ? '' : ' collapsed'}`}>
           <div className="col-head">
@@ -111,6 +168,7 @@ export default function Workspace({ storyId, myRole }: WorkspaceProps) {
                 setSelectedId(null);
                 refresh();
               }}
+              onWordCount={onNodeWordCount}
             />
           ) : (
             <p className="muted">Select a node — or create one — to start writing.</p>

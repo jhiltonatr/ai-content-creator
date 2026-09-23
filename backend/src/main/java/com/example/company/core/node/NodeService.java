@@ -259,7 +259,7 @@ public class NodeService {
         Map<Long, NodeSummary> index = new HashMap<>();
         for (NodeFull node : nodes) {
             index.put(node.id(), new NodeSummary(node.id(), node.kind(), node.title(), node.status(),
-                    node.sortOrder(), new ArrayList<>()));
+                    node.sortOrder(), node.wordCount(), new ArrayList<>()));
         }
         List<NodeSummary> roots = new ArrayList<>();
         for (NodeFull node : nodes) {
