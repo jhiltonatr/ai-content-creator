@@ -1,11 +1,23 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { api } from '../api/client';
 import type { NodeKind, NodeSummary, Role, Story } from '../api/types';
 import { ROOT_KINDS } from '../lib/archetypes';
 import { PANEL_TABS, type PanelTab } from '../lib/panels';
 import { useBooleanPref, useStringPref } from './useLocalStoragePref';
 
-export function useWorkspace({ storyId, myRole }: { storyId: number; myRole: Role | null }) {
+function findNodeId(nodes: NodeSummary[], id: number): boolean {
+  for (const n of nodes) {
+    if (n.id === id) return true;
+    if (findNodeId(n.children, id)) return true;
+  }
+  return false;
+}
+
+export function useWorkspace({ storyId, myRole, initialNodeId }: {
+  storyId: number;
+  myRole: Role | null;
+  initialNodeId?: number | null;
+}) {
   const canWrite = myRole === 'OWNER' || myRole === 'COLLABORATOR';
   const canPublish = myRole === 'OWNER';
 
@@ -27,6 +39,7 @@ export function useWorkspace({ storyId, myRole }: { storyId: number; myRole: Rol
   const [showAddRoot, setShowAddRoot] = useState(false);
   const [newTitle, setNewTitle] = useState('');
   const [newKind, setNewKind] = useState<NodeKind>(ROOT_KINDS.NOVEL[0]);
+  const appliedInitialRef = useRef(false);
 
   const load = useCallback(() => {
     api
@@ -48,8 +61,14 @@ export function useWorkspace({ storyId, myRole }: { storyId: number; myRole: Rol
   }, [load]);
 
   useEffect(() => {
-    if (selectedId === null && tree.length > 0) setSelectedId(tree[0].id);
-  }, [tree, selectedId]);
+    if (appliedInitialRef.current || tree.length === 0) return;
+    if (initialNodeId !== null && initialNodeId !== undefined && findNodeId(tree, initialNodeId)) {
+      setSelectedId(initialNodeId);
+    } else {
+      setSelectedId(tree[0].id);
+    }
+    appliedInitialRef.current = true;
+  }, [tree, initialNodeId]);
 
   const refresh = useCallback(() => {
     api

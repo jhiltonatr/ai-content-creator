@@ -11,6 +11,8 @@ Script block / Lore / Link / Release), and the architecture decisions. This MVP
 implements: stories by type (NOVEL, RPG, SCRIPT), a unified node tree validated against
 per-type archetypes, characters, lore, memberships with a role permission matrix,
 versioned release snapshots, and optimistic concurrency with conflict steering.
+Dashboards give a project-level overview per story (synopsis, word counts, draft/done
+roll-up, per-node language, recent edits) before opening a chapter.
 
 ## Requirements
 
@@ -149,6 +151,7 @@ default `application.yml`.
 | `POST /api/admin/users/{id}/password` | Admin: reset password (revokes tokens) |
 | `DELETE /api/admin/users/{id}` | Admin: delete user |
 | `GET/POST /api/stories` | List / create stories |
+| `GET /api/stories/{id}/dashboard` | Story overview: synopsis, total words, draft/done roll-up, per-book word counts & status, per-node language, recent edits (draft-access) |
 | `GET /api/stories/{id}/nodes` | Node tree (root summaries) |
 | `GET/POST /api/stories/{id}/nodes[/{nodeId}]` | Node detail / create |
 | `PUT /api/stories/{id}/nodes/{nodeId}` | Metadata (title, status DRAFT/DONE, language) |

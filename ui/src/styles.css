@@ -1700,3 +1700,217 @@ h1 {
   text-align: center;
   margin-top: 28px;
 }
+
+/* ---- Story dashboard ---- */
+.dash-page {
+  max-width: 1000px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.dash-section-title {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+  margin-bottom: 8px;
+}
+
+.dash-synopsis p {
+  margin: 0;
+  white-space: pre-wrap;
+}
+
+.dash-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 12px;
+}
+
+.dash-stat {
+  text-align: center;
+  padding: 14px 12px;
+}
+
+.dash-stat-value {
+  font-size: 24px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.dash-stat-label {
+  font-size: 12px;
+  color: var(--muted);
+  margin-top: 2px;
+}
+
+.dash-langs {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.dash-langs .muted {
+  margin-left: 4px;
+}
+
+.badge.lang {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+.dash-panel {
+  padding: 14px;
+}
+
+.dash-recent {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.dash-recent-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  background: none;
+  border: none;
+  border-radius: 6px;
+  padding: 7px 6px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.dash-recent-item:hover {
+  background: var(--bg-soft);
+}
+
+.dash-recent-title {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.dash-recent-title .kind-tag {
+  flex-shrink: 0;
+}
+
+.dash-books {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.dash-book {
+  padding: 0;
+  overflow: hidden;
+}
+
+.dash-book-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  background: none;
+  border: none;
+  border-radius: 0;
+  padding: 12px 14px;
+  cursor: pointer;
+  text-align: left;
+  border-bottom: 1px solid var(--border);
+}
+
+.dash-book-head:hover {
+  background: var(--bg-soft);
+}
+
+.dash-book-head .kind-tag {
+  flex-shrink: 0;
+}
+
+.dash-book-title {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dash-book-progress {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 180px;
+  max-width: 240px;
+}
+
+.dash-book-words {
+  flex-shrink: 0;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+
+.dash-subtree {
+  padding: 4px 8px 8px;
+  display: flex;
+  flex-direction: column;
+}
+
+.dash-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  background: none;
+  border: none;
+  border-radius: 6px;
+  padding: 5px 10px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.dash-row:hover {
+  background: var(--bg-soft);
+}
+
+.dash-row-title {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.dash-row-title .kind-tag {
+  flex-shrink: 0;
+}
+
+.dash-row-words {
+  flex-shrink: 0;
+  width: 56px;
+  text-align: right;
+  font-size: 12px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.dash-row-meta {
+  flex-shrink: 0;
+  white-space: nowrap;
+}

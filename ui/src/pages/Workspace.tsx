@@ -17,6 +17,7 @@ import ReaderView from './ReaderView';
 interface WorkspaceProps {
   storyId: number;
   myRole: Role | null;
+  initialNodeId?: number | null;
 }
 
 function sumTree(nodes: NodeSummary[]): number {
@@ -49,7 +50,7 @@ const STORY_KIND_LABELS: Record<StoryType, string> = {
 
 const STORY_TYPES: StoryType[] = ['NOVEL', 'RPG', 'SCRIPT'];
 
-export default function Workspace({ storyId, myRole }: WorkspaceProps) {
+export default function Workspace({ storyId, myRole, initialNodeId }: WorkspaceProps) {
   const {
     story,
     stories,
@@ -73,7 +74,7 @@ export default function Workspace({ storyId, myRole }: WorkspaceProps) {
     setNewKind,
     addRoot,
     refresh,
-  } = useWorkspace({ storyId, myRole });
+  } = useWorkspace({ storyId, myRole, initialNodeId });
 
   const stats = useWritingStats();
   const [liveNodeCount, setLiveNodeCount] = useState<number | null>(null);
@@ -261,6 +262,18 @@ export default function Workspace({ storyId, myRole }: WorkspaceProps) {
     );
 
     list.push({
+      id: 'open-dashboard',
+      label: 'Open story dashboard',
+      hint: 'Overview · word counts · status · languages · recent edits',
+      group: 'Navigate',
+      keywords: ['dashboard', 'overview', 'project', 'home'],
+      run: () => {
+        window.location.hash = `#/story/${storyId}/dashboard`;
+        closePalette();
+      },
+    });
+
+    list.push({
       id: 'home',
       label: 'Back to stories',
       hint: 'Story list',
@@ -365,6 +378,15 @@ export default function Workspace({ storyId, myRole }: WorkspaceProps) {
           <div className="col-head">
             <strong>{story.title}</strong>
             <span className="badge">{story.storyType}</span>
+            <button
+              className="small"
+              title={`Overview of ${story.title}: word counts, status, languages, recent edits`}
+              onClick={() => {
+                window.location.hash = `#/story/${storyId}/dashboard`;
+              }}
+            >
+              Dashboard
+            </button>
             {canWrite && (
               <button className="small" onClick={openAddRoot}>
                 + Root

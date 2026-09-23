@@ -90,6 +90,7 @@ export const api = {
   getStory: (storyId: number) => request('GET', `/api/stories/${storyId}`),
   createStory: (body: { title: string; storyType: string } & Record<string, JsonValue>) =>
     request('POST', '/api/stories', body),
+  dashboard: (storyId: number) => request('GET', `/api/stories/${storyId}/dashboard`),
 
   nodes: (storyId: number) => request('GET', `/api/stories/${storyId}/nodes`),
   node: (storyId: number, nodeId: number) => request('GET', `/api/stories/${storyId}/nodes/${nodeId}`),

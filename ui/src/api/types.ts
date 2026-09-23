@@ -167,6 +167,49 @@ export interface CheckpointSummary {
   wordCount: number;
 }
 
+export interface DashboardNode {
+  id: number;
+  parentId: number | null;
+  kind: NodeKind;
+  title: string;
+  status: NodeStatus;
+  language: string;
+  wordCount: number;
+  updatedAt: string;
+  updatedBy: number;
+  updatedByName: string;
+}
+
+export interface DashboardLanguage {
+  code: string;
+  count: number;
+}
+
+export interface DashboardBook {
+  node: DashboardNode;
+  wordCount: number;
+  nodeCount: number;
+  draftCount: number;
+  doneCount: number;
+  nodes: DashboardNode[];
+}
+
+export interface StoryDashboard {
+  storyId: number;
+  title: string;
+  storyType: StoryType;
+  defaultLanguage: string;
+  synopsis: string | null;
+  updatedAt: string;
+  totalWords: number;
+  nodeCount: number;
+  draftCount: number;
+  doneCount: number;
+  languages: DashboardLanguage[];
+  books: DashboardBook[];
+  recentEdits: DashboardNode[];
+}
+
 export interface Checkpoint {
   id: number;
   nodeId: number;
