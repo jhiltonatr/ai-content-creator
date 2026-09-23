@@ -1,6 +1,14 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { api } from '../api/client';
 import type { JsonValue, Release, Story } from '../api/types';
+import ReaderTree from '../components/ReaderTree';
+import {
+  buildReaderPlan,
+  buildReleaseTree,
+  findReaderNode,
+  type ReaderPlan,
+  type ReaderSection,
+} from '../lib/reader';
 
 interface ReaderViewProps {
   story: Story;
@@ -89,9 +97,12 @@ function ScriptBlockView({ script }: { script: unknown }) {
   );
 }
 
-function BodyText({ body }: { body: JsonValue | null }) {
+function BodyText({ body, container }: { body: JsonValue | null; container?: boolean }) {
   const blocks = collectBlocks(body);
-  if (blocks.length === 0) return <p className="muted">(no body)</p>;
+  if (blocks.length === 0) {
+    if (container) return null;
+    return <p className="muted">(no body)</p>;
+  }
   return (
     <div className="reader-body">
       {blocks.map((b, i) =>
@@ -107,9 +118,36 @@ function BodyText({ body }: { body: JsonValue | null }) {
   );
 }
 
+function SectionView({ section, isMain }: { section: ReaderSection; isMain: boolean }) {
+  const n = section.node;
+  const title = isMain ? (
+    <h2 className="reader-section-title">
+      <span className="badge">{n.kind}</span> {n.title}
+    </h2>
+  ) : (
+    <h3 className="reader-section-title">
+      <span className="badge">{n.kind}</span> {n.title}
+    </h3>
+  );
+  return (
+    <div className={`reader-section${isMain ? ' reader-section-main' : ''}`}>
+      {title}
+      {n.script ? <ScriptBlockView script={n.script} /> : <BodyText body={n.body} container={isMain || section.sections.length > 0} />}
+      {section.sections.length > 0 && (
+        <div className="reader-subtree">
+          {section.sections.map((s) => (
+            <SectionView key={s.node.id} section={s} isMain={false} />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function ReaderView({ story, canWrite }: ReaderViewProps) {
   const [latest, setLatest] = useState<Release | null>(null);
   const [message, setMessage] = useState<string | null>(null);
+  const [selectedId, setSelectedId] = useState<number | null>(null);
 
   const load = useCallback(() => {
     api
@@ -120,14 +158,37 @@ export default function ReaderView({ story, canWrite }: ReaderViewProps) {
 
   useEffect(() => {
     load();
+    setSelectedId(null);
   }, [load]);
 
+  const tree = useMemo(() => buildReleaseTree(latest?.nodes), [latest]);
+
+  useEffect(() => {
+    if (tree.length === 0) return;
+    if (selectedId !== null && findReaderNode(tree, selectedId)) return;
+    setSelectedId(tree[0].id);
+  }, [tree, selectedId]);
+
+  const selected = useMemo(
+    () => (selectedId === null ? null : findReaderNode(tree, selectedId)),
+    [tree, selectedId],
+  );
+
+  const plan: ReaderPlan | null = useMemo(
+    () => (selected ? buildReaderPlan(selected) : null),
+    [selected],
+  );
+
+  const truncated = plan !== null && plan.shown < plan.total;
+
   return (
-    <div className="page reader">
-      <div className="page-head">
-        <div>
+    <div className="reader-workspace">
+      <div className="reader-head">
+        <div className="reader-head-title">
           <h1>{story.title}</h1>
-          <span className="muted">Published view{canWrite ? ' (you can also edit in the Drafts view)' : ''}</span>
+          <span className="muted small">
+            Published view{canWrite ? ' (you can also edit in the Drafts view)' : ''}
+          </span>
         </div>
         <span className="badge role">VIEWER · published only</span>
       </div>
@@ -137,32 +198,55 @@ export default function ReaderView({ story, canWrite }: ReaderViewProps) {
         </div>
       )}
       {!latest ? (
-        <div className="card">
-          <p>
-            <strong>Nothing has been published yet.</strong>
-          </p>
-          <p className="muted">The owner publishes a release when they are ready; you will see it here.</p>
+        <div className="reader-empty">
+          <div className="card">
+            <p>
+              <strong>Nothing has been published yet.</strong>
+            </p>
+            <p className="muted">The owner publishes a release when they are ready; you will see it here.</p>
+          </div>
         </div>
       ) : (
-        <div className="card">
-          <div className="release-head">
-            <strong>
-              Release v{latest.version}
-              {latest.name ? ` · ${latest.name}` : ''}
-            </strong>
-            <span className="muted small">{new Date(latest.publishedAt).toLocaleString()}</span>
-          </div>
-          {latest.notes && <p className="muted">{latest.notes}</p>}
-          <ul className="reader-nodes">
-            {latest.nodes?.map((n) => (
-              <li key={n.id} className="reader-node">
-                <div className="reader-node-title">
-                  <span className="badge">{n.kind}</span> {n.title}
-                </div>
-                {n.script ? <ScriptBlockView script={n.script} /> : <BodyText body={n.body} />}
-              </li>
-            ))}
-          </ul>
+        <div className="workspace-row reader-row">
+          <aside className="col tree-col reader-tree-col">
+            <div className="col-head">
+              <strong>{story.title}</strong>
+              <span className="badge">{story.storyType}</span>
+            </div>
+            <div className="card tight reader-release">
+              <strong>
+                v{latest.version}
+                {latest.name ? ` · ${latest.name}` : ''}
+              </strong>
+              <div className="muted small">{new Date(latest.publishedAt).toLocaleString()}</div>
+              {latest.notes && <p className="muted small reader-release-notes">{latest.notes}</p>}
+            </div>
+            <ReaderTree storyId={story.id} nodes={tree} selectedId={selectedId} onSelect={setSelectedId} />
+          </aside>
+          <section className="col editor-col reader-content-col">
+            {selected && plan && plan.section ? (
+              <article className="reader-content">
+                {truncated && (
+                  <div className="banner reader-limit">
+                    <strong>
+                      Showing {plan.shown} of {plan.total} sections — not all content is currently displayed.
+                    </strong>{' '}
+                    Open a specific section in the story map to read the rest.
+                  </div>
+                )}
+                <SectionView section={plan.section} isMain />
+                {truncated && (
+                  <p className="reader-limits-end muted">
+                    — End of displayed content · {plan.shown} of {plan.total} sections —
+                  </p>
+                )}
+              </article>
+            ) : (
+              <div className="reader-content">
+                <p className="muted">Select a section from the story map to start reading.</p>
+              </div>
+            )}
+          </section>
         </div>
       )}
     </div>
