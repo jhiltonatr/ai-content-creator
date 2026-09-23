@@ -135,6 +135,7 @@ export interface Membership {
 
 export interface ReleaseNode {
   id: number;
+  parentId?: number | null;
   kind: NodeKind;
   title: string;
   status: NodeStatus;

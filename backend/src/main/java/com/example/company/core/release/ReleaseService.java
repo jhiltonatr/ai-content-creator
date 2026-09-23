@@ -12,8 +12,11 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
+import tools.jackson.databind.node.ArrayNode;
+import tools.jackson.databind.node.ObjectNode;
 
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -63,7 +66,49 @@ public class ReleaseService {
     public ReleaseRecord latest(long userId, long storyId) {
         access.requireMember(userId, storyId);
         return releases.latest(storyId)
+                .map(this::restoreHierarchy)
                 .orElseThrow(() -> new NotFoundException("No release published for this story"));
+    }
+
+    /**
+     * Snapshots published before {@code parentId} was stored have no hierarchy.
+     * Reader navigation depends on it, so recover the parent/child links for the
+     * released set from the current node tree. Only parents that are themselves
+     * part of this release are linked (the visible tree stays inside the snapshot);
+     * anything else surfaces as a root. The stored snapshot is never rewritten.
+     */
+    private ReleaseRecord restoreHierarchy(ReleaseRecord release) {
+        JsonNode raw = release.nodes();
+        if (raw == null || !raw.isArray() || raw.isEmpty()) return release;
+        boolean hasParentId = false;
+        for (JsonNode n : raw) {
+            if (n.has("parentId")) {
+                hasParentId = true;
+                break;
+            }
+        }
+        if (hasParentId) return release;
+
+        List<NodeFull> all = nodes.listForStory(release.storyId());
+        Map<Long, Long> parentById = new HashMap<>();
+        for (NodeFull n : all) parentById.put(n.id(), n.parentId());
+        Set<Long> releasedIds = new HashSet<>();
+        for (JsonNode n : raw) releasedIds.add(n.get("id").asLong());
+
+        ArrayNode updated = mapper.createArrayNode();
+        for (JsonNode n : raw) {
+            ObjectNode copy = ((ObjectNode) n).deepCopy();
+            long id = n.get("id").asLong();
+            Long parentId = parentById.get(id);
+            if (parentId != null && releasedIds.contains(parentId)) {
+                copy.put("parentId", parentId);
+            } else {
+                copy.putNull("parentId");
+            }
+            updated.add(copy);
+        }
+        return new ReleaseRecord(release.id(), release.storyId(), release.version(), release.name(),
+                release.notes(), release.createdBy(), release.publishedAt(), updated);
     }
 
     @Transactional

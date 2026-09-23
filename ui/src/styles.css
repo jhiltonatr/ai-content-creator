@@ -1546,3 +1546,157 @@ h1 {
 .diff-context {
   color: var(--muted);
 }
+
+.reader-workspace {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.reader-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-soft);
+}
+
+.reader-head-title h1 {
+  font-size: 18px;
+  line-height: 1.2;
+}
+
+.reader-empty {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+.reader-tree-col {
+  width: 280px;
+  flex-shrink: 0;
+}
+
+.reader-release {
+  margin-bottom: 10px;
+  font-size: 13px;
+}
+
+.reader-release-notes {
+  margin: 4px 0 0;
+  white-space: pre-wrap;
+}
+
+.reader-tree .reader-item {
+  cursor: pointer;
+}
+
+.reader-tree .reader-item.selected .word-count {
+  color: var(--accent);
+}
+
+.reader-content-col {
+  overflow: hidden;
+}
+
+.reader-content {
+  height: 100%;
+  overflow: auto;
+  padding: 20px 28px 48px;
+  max-width: 780px;
+  margin: 0 auto;
+}
+
+.reader-section {
+  margin-bottom: 28px;
+}
+
+.reader-section-main > .reader-section-title {
+  margin-top: 0;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--border);
+}
+
+.reader-section-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 18px 0 8px;
+  font-size: 17px;
+  line-height: 1.3;
+}
+
+.reader-section-main > .reader-section-title {
+  font-size: 19px;
+}
+
+.reader-subtree {
+  margin-top: 14px;
+}
+
+.reader-subtree .reader-section {
+  border-left: 2px solid var(--border);
+  padding-left: 14px;
+}
+
+.reader-body {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  line-height: 1.65;
+}
+
+.reader-body p {
+  margin: 0;
+}
+
+.reader-body .reader-head {
+  display: block;
+  padding: 0;
+  border: none;
+  background: none;
+  font-size: 15px;
+  margin: 6px 0 0;
+}
+
+.reader-action p {
+  margin: 0 0 8px;
+  font-style: italic;
+}
+
+.reader-heading {
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  margin-bottom: 8px;
+}
+
+.reader-dialogue {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  border-left: 3px solid var(--accent);
+  padding-left: 10px;
+  margin: 8px 0;
+}
+
+.reader-char {
+  font-weight: 700;
+}
+
+.reader-limit {
+  background: rgba(229, 181, 103, 0.14);
+  border: 1px solid var(--warn);
+  color: var(--text);
+  margin: 0 0 20px;
+}
+
+.reader-limits-end {
+  font-style: italic;
+  text-align: center;
+  margin-top: 28px;
+}
