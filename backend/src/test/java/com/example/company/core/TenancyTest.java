@@ -124,4 +124,78 @@ class TenancyTest extends ApiTestBase {
                         .header("X-User-Id", alice))
                 .andExpect(MockMvcResultMatchers.status().isBadRequest());
     }
+
+    @Test
+    void onlyCreatorOrCollaboratorCanMoveNodes() throws Exception {
+        long alice = newUser("move-owner@test.example").id();
+        long bob = newUser("move-collab@test.example").id();
+        long carol = newUser("move-editor@test.example").id();
+        long dave = newUser("move-viewer@test.example").id();
+
+        long story = createStory(alice, "Move guard", "NOVEL");
+
+        mvc.perform(MockMvcRequestBuilders.post("/api/stories/" + story + "/members")
+                        .header("X-User-Id", alice)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"email\":\"move-collab@test.example\",\"role\":\"COLLABORATOR\"}"))
+                .andExpect(MockMvcResultMatchers.status().isOk());
+        mvc.perform(MockMvcRequestBuilders.post("/api/stories/" + story + "/members")
+                        .header("X-User-Id", alice)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"email\":\"move-editor@test.example\",\"role\":\"EDITOR\"}"))
+                .andExpect(MockMvcResultMatchers.status().isOk());
+        mvc.perform(MockMvcRequestBuilders.post("/api/stories/" + story + "/members")
+                        .header("X-User-Id", alice)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"email\":\"move-viewer@test.example\",\"role\":\"VIEWER\"}"))
+                .andExpect(MockMvcResultMatchers.status().isOk());
+
+        long bookA = json(mvc.perform(MockMvcRequestBuilders.post("/api/stories/" + story + "/nodes")
+                        .header("X-User-Id", alice)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"nodeType\":\"BOOK\",\"title\":\"Book A\"}"))
+                .andExpect(MockMvcResultMatchers.status().isCreated())
+                .andReturn()).get("id").longValue();
+        long bookB = json(mvc.perform(MockMvcRequestBuilders.post("/api/stories/" + story + "/nodes")
+                        .header("X-User-Id", alice)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"nodeType\":\"BOOK\",\"title\":\"Book B\"}"))
+                .andExpect(MockMvcResultMatchers.status().isCreated())
+                .andReturn()).get("id").longValue();
+        long chapter = json(mvc.perform(MockMvcRequestBuilders.post("/api/stories/" + story + "/nodes")
+                        .header("X-User-Id", alice)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"nodeType\":\"CHAPTER\",\"title\":\"Chapter\",\"parentId\":" + bookA + "}"))
+                .andExpect(MockMvcResultMatchers.status().isCreated())
+                .andReturn()).get("id").longValue();
+
+        // collaborator may reparent…
+        MvcResult moved = mvc.perform(MockMvcRequestBuilders.put("/api/stories/" + story + "/nodes/" + chapter + "/move")
+                        .header("X-User-Id", bob)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"expectedVersion\":1,\"parentId\":" + bookB + "}"))
+                .andExpect(MockMvcResultMatchers.status().isOk())
+                .andReturn();
+        assertThat(json(moved).get("parentId").longValue()).isEqualTo(bookB);
+
+        // …and reorder (both creator and collaborator; owner covered by the setup above)
+        mvc.perform(MockMvcRequestBuilders.put("/api/stories/" + story + "/nodes/" + chapter + "/move")
+                        .header("X-User-Id", bob)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"expectedVersion\":2,\"sortOrder\":5}"))
+                .andExpect(MockMvcResultMatchers.status().isOk());
+
+        // editor cannot reparent or reorder
+        mvc.perform(MockMvcRequestBuilders.put("/api/stories/" + story + "/nodes/" + chapter + "/move")
+                        .header("X-User-Id", carol)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"expectedVersion\":3,\"parentId\":" + bookA + "}"))
+                .andExpect(MockMvcResultMatchers.status().isForbidden());
+        // viewer cannot reparent or reorder either
+        mvc.perform(MockMvcRequestBuilders.put("/api/stories/" + story + "/nodes/" + chapter + "/move")
+                        .header("X-User-Id", dave)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"expectedVersion\":3,\"parentId\":" + bookA + ",\"sortOrder\":1}"))
+                .andExpect(MockMvcResultMatchers.status().isForbidden());
+    }
 }

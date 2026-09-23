@@ -109,7 +109,7 @@ public class NodeService {
 
     @Transactional
     public NodeFull move(long userId, long storyId, long nodeId, MoveNodeRequest request) {
-        access.require(userId, storyId, AccessChecker.Capability.WRITE_CONTENT);
+        access.require(userId, storyId, AccessChecker.Capability.MOVE_NODES);
         StoryRecord story = stories.require(storyId);
         Archetype archetype = Archetypes.forScope(story.storyType());
 

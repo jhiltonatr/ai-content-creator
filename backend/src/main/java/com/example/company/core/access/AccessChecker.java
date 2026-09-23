@@ -20,6 +20,7 @@ public class AccessChecker {
         MANAGE_STORY,
         MANAGE_MEMBERS,
         WRITE_CONTENT,
+        MOVE_NODES,
         READ_DRAFTS,
         PUBLISH
     }
@@ -41,7 +42,7 @@ public class AccessChecker {
     private boolean allows(Capability capability, Role role) {
         return switch (capability) {
             case MANAGE_STORY, MANAGE_MEMBERS, PUBLISH -> role == Role.OWNER;
-            case WRITE_CONTENT -> role == Role.OWNER || role == Role.COLLABORATOR;
+            case WRITE_CONTENT, MOVE_NODES -> role == Role.OWNER || role == Role.COLLABORATOR;
             case READ_DRAFTS -> role == Role.OWNER || role == Role.COLLABORATOR || role == Role.EDITOR;
         };
     }

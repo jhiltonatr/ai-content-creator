@@ -394,6 +394,7 @@ export default function Workspace({ storyId, myRole }: WorkspaceProps) {
             storyId={storyId}
             canWrite={canWrite}
             onChanged={refresh}
+            onError={(m) => setMessage(m)}
           />
         </aside>
         {!zen && (

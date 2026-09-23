@@ -538,16 +538,60 @@ h1 {
   color: var(--ok);
 }
 
-.tree-item .del {
+.node-actions {
   visibility: hidden;
+  display: flex;
+  align-items: center;
+  gap: 1px;
+  flex-shrink: 0;
+}
+
+.tree-item:hover .node-actions,
+.tree-item.selected .node-actions {
+  visibility: visible;
+}
+
+.tree-item .acts {
+  background: none;
+  border: none;
+  color: var(--muted);
+  padding: 0 2px;
+  font-size: 12px;
+  line-height: 1;
+}
+
+.tree-item .acts:hover:not(:disabled) {
+  color: var(--accent);
+  border-color: transparent;
+}
+
+.tree-item .acts:disabled {
+  opacity: 0.3;
+}
+
+.tree-item .del {
   background: none;
   border: none;
   color: var(--danger);
   padding: 0 2px;
 }
 
-.tree-item:hover .del {
-  visibility: visible;
+.tree-item.dragging {
+  opacity: 0.4;
+}
+
+.tree-item.drop-before {
+  box-shadow: inset 0 2px 0 var(--accent);
+}
+
+.tree-item.drop-after {
+  box-shadow: inset 0 -2px 0 var(--accent);
+}
+
+.tree-item.drop-into {
+  outline: 1px solid var(--accent);
+  outline-offset: -1px;
+  background: var(--accent-soft);
 }
 
 .add-child {
@@ -1317,4 +1361,66 @@ h1 {
 
 .float-zen:hover {
   opacity: 1;
+}
+
+/* ---- Move to parent (reparent) modal ---- */
+.move-search {
+  width: 100%;
+}
+
+.move-options {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  overflow: auto;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 4px;
+  background: var(--bg-soft);
+  min-height: 120px;
+}
+
+.move-option {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  text-align: left;
+  background: none;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  padding: 6px 8px;
+  cursor: pointer;
+}
+
+.move-option:hover {
+  background: var(--bg-card);
+  border-color: var(--border);
+}
+
+.move-option.selected {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+}
+
+.move-kind {
+  color: var(--muted);
+  font-size: 10px;
+  text-transform: uppercase;
+  flex-shrink: 0;
+}
+
+.move-label {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.move-path {
+  color: var(--muted);
+  font-size: 11px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 45%;
 }
