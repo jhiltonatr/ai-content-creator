@@ -14,6 +14,18 @@ export interface PendingSave {
   script?: ScriptBlock | null;
 }
 
+interface NotesPending {
+  changeId: string;
+  note: string | null;
+}
+
+/** Reads the private scratchpad out of a node's meta. */
+function readNote(node: NodeFull | null): string {
+  if (!node?.meta || typeof node.meta !== 'object' || Array.isArray(node.meta)) return '';
+  const notes = (node.meta as Record<string, unknown>).notes;
+  return typeof notes === 'string' ? notes : '';
+}
+
 interface UseNodeEditorArgs {
   storyId: number;
   nodeId: number;
@@ -38,10 +50,13 @@ export function useNodeEditor({ storyId, nodeId, onChanged, onDelete }: UseNodeE
   const [bodyWords, setBodyWords] = useState(0);
   const [scriptWords, setScriptWords] = useState(0);
   const [checkpoints, setCheckpoints] = useState<CheckpointSummary[]>([]);
+  const [noteDraft, setNoteDraft] = useState('');
 
   const nodeRef = useRef<NodeFull | null>(null);
   const pendingRef = useRef<PendingSave | null>(null);
+  const notesPendingRef = useRef<NotesPending | null>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const notesDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const savingRef = useRef(false);
   const conflictRef = useRef<NodeFull | null>(null);
 
@@ -81,7 +96,10 @@ export function useNodeEditor({ storyId, nodeId, onChanged, onDelete }: UseNodeE
           setScriptDraft(n.script ?? null);
           setBodyWords(countDocWords(n.body as TipTapDoc | null));
           setScriptWords(countScriptWords(n.script));
+          setNoteDraft(readNote(n));
           pendingRef.current = null;
+          notesPendingRef.current = null;
+          if (notesDebounceRef.current) clearTimeout(notesDebounceRef.current);
           conflictRef.current = null;
           setConflict(null);
           setSavedAt(null);
@@ -153,22 +171,55 @@ export function useNodeEditor({ storyId, nodeId, onChanged, onDelete }: UseNodeE
     [storyId, onChanged, surfaceError],
   );
 
+  const flushNotes = useCallback(
+    async (pending: NotesPending): Promise<boolean> => {
+      const current = nodeRef.current;
+      if (!current) return false;
+      try {
+        const updated = await api.updateNotes(storyId, current.id, {
+          expectedVersion: current.version,
+          changeId: pending.changeId,
+          note: pending.note,
+        });
+        if (notesPendingRef.current && notesPendingRef.current.changeId === pending.changeId) {
+          notesPendingRef.current = null;
+        }
+        nodeRef.current = updated;
+        setNode(updated);
+        if (!notesPendingRef.current) {
+          setNoteDraft(readNote(updated));
+        }
+        setSavedAt(new Date().toLocaleTimeString());
+        onChanged();
+        return true;
+      } catch (e) {
+        surfaceError(e);
+        return false;
+      }
+    },
+    [storyId, onChanged, surfaceError],
+  );
+
   const flush = useCallback(async () => {
     const pending = pendingRef.current;
-    if (!pending || !nodeRef.current || savingRef.current) return;
+    const notesPending = notesPendingRef.current;
+    if ((!pending && !notesPending) || !nodeRef.current || savingRef.current) return;
     savingRef.current = true;
     setSaving(true);
     setError(null);
     try {
-      const ok = await flushBodyOrScript(pending);
-      if (ok && pendingRef.current) {
+      let ok = pending ? await flushBodyOrScript(pending) : true;
+      if (ok && notesPending) {
+        ok = await flushNotes(notesPending);
+      }
+      if (ok && (pendingRef.current || notesPendingRef.current)) {
         void flush();
       }
     } finally {
       savingRef.current = false;
       setSaving(false);
     }
-  }, [flushBodyOrScript]);
+  }, [flushBodyOrScript, flushNotes]);
 
   const scheduleDebounced = useCallback(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
@@ -197,6 +248,21 @@ export function useNodeEditor({ storyId, nodeId, onChanged, onDelete }: UseNodeE
       scheduleDebounced();
     },
     [scheduleDebounced],
+  );
+
+  const onNoteChange = useCallback(
+    (value: string) => {
+      setNoteDraft(value);
+      notesPendingRef.current = {
+        changeId: crypto.randomUUID(),
+        note: value.trim() === '' ? null : value,
+      };
+      if (notesDebounceRef.current) clearTimeout(notesDebounceRef.current);
+      notesDebounceRef.current = setTimeout(() => {
+        void flush();
+      }, AUTO_SAVE_MS);
+    },
+    [flush],
   );
 
   const saveMetadataCore = useCallback(async (): Promise<boolean> => {
@@ -248,6 +314,10 @@ export function useNodeEditor({ storyId, nodeId, onChanged, onDelete }: UseNodeE
           const flushed = await flushBodyOrScript(pendingRef.current);
           if (!flushed) return false;
         }
+        if (notesPendingRef.current) {
+          const flushed = await flushNotes(notesPendingRef.current);
+          if (!flushed) return false;
+        }
         const current = nodeRef.current;
         if (!current) return false;
         const trimmed = title.trim();
@@ -267,7 +337,7 @@ export function useNodeEditor({ storyId, nodeId, onChanged, onDelete }: UseNodeE
         setCheckpointing(false);
       }
     },
-    [storyId, title, status, flushBodyOrScript, saveMetadataCore, reloadCheckpoints, surfaceError],
+    [storyId, title, status, flushBodyOrScript, flushNotes, saveMetadataCore, reloadCheckpoints, surfaceError],
   );
 
   const restoreToCheckpoint = useCallback(
@@ -289,7 +359,10 @@ export function useNodeEditor({ storyId, nodeId, onChanged, onDelete }: UseNodeE
         setScriptDraft(updated.script ?? null);
         setBodyWords(countDocWords(updated.body as TipTapDoc | null));
         setScriptWords(countScriptWords(updated.script));
+        setNoteDraft(readNote(updated));
         pendingRef.current = null;
+        notesPendingRef.current = null;
+        if (notesDebounceRef.current) clearTimeout(notesDebounceRef.current);
         conflictRef.current = null;
         setConflict(null);
         setSavedAt(null);
@@ -318,7 +391,10 @@ export function useNodeEditor({ storyId, nodeId, onChanged, onDelete }: UseNodeE
     setScriptDraft(theirs.script ?? null);
     setBodyWords(countDocWords(theirs.body as TipTapDoc | null));
     setScriptWords(countScriptWords(theirs.script));
+    setNoteDraft(readNote(theirs));
     pendingRef.current = null;
+    notesPendingRef.current = null;
+    if (notesDebounceRef.current) clearTimeout(notesDebounceRef.current);
     conflictRef.current = null;
     setConflict(null);
     setSavedAt(null);
@@ -335,7 +411,7 @@ export function useNodeEditor({ storyId, nodeId, onChanged, onDelete }: UseNodeE
     }
     conflictRef.current = null;
     setConflict(null);
-    if (pendingRef.current) {
+    if (pendingRef.current || notesPendingRef.current) {
       void flush();
     }
   }, [flush]);
@@ -369,6 +445,8 @@ export function useNodeEditor({ storyId, nodeId, onChanged, onDelete }: UseNodeE
     editorKey,
     checkpoints,
     reloadCheckpoints,
+    noteDraft,
+    onNoteChange,
     wordCount: bodyWords + scriptWords,
     onBodyChange,
     onScriptChange,

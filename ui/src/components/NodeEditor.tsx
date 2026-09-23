@@ -6,6 +6,7 @@ import type { MentionItem } from '../lib/mentionSync';
 import RichEditor from './RichEditor';
 import ScriptEditor from './ScriptEditor';
 import CheckpointsPanel from './CheckpointsPanel';
+import NotesScratchpad from './NotesScratchpad';
 
 interface NodeEditorProps {
   storyId: number;
@@ -43,6 +44,8 @@ export default function NodeEditor({
     editorKey,
     wordCount,
     checkpoints,
+    noteDraft,
+    onNoteChange,
     checkpointing,
     restoring,
     onBodyChange,
@@ -113,6 +116,7 @@ export default function NodeEditor({
           </div>
         </div>
       )}
+      <NotesScratchpad note={noteDraft} canWrite={canWrite} onChange={canWrite ? onNoteChange : () => undefined} />
       {usesScript ? (
         <ScriptEditor
           key={`script-${editorKey}`}

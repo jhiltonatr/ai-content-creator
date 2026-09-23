@@ -167,6 +167,10 @@ export interface CheckpointSummary {
   wordCount: number;
 }
 
+export interface NodeNotes {
+  note: string | null;
+}
+
 export interface DashboardNode {
   id: number;
   parentId: number | null;

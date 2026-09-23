@@ -692,6 +692,73 @@ h1 {
   font-size: 12px;
 }
 
+.notes-scratchpad {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--bg-card);
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.notes-toggle {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border: none;
+  background: none;
+  text-align: left;
+  padding: 6px 10px;
+  font-size: 12px;
+}
+
+.notes-toggle .notes-caret {
+  color: var(--muted);
+}
+
+.notes-toggle .notes-caret.has-note {
+  color: var(--accent);
+}
+
+.notes-toggle .notes-preview {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.notes-toggle .notes-suggestion {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.notes-toggle .notes-chars {
+  flex-shrink: 0;
+}
+
+.notes-textarea {
+  display: block;
+  width: 100%;
+  resize: vertical;
+  border: none;
+  border-top: 1px solid var(--border);
+  border-radius: 0;
+  min-height: 64px;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.notes-readonly {
+  padding: 8px 12px;
+  border-top: 1px solid var(--border);
+  font-size: 13px;
+  white-space: pre-wrap;
+}
+
 .rich {
   flex: 1;
   min-height: 0;

@@ -159,6 +159,7 @@ default `application.yml`.
 | `PUT /api/stories/{id}/nodes/{nodeId}/body` | Rich text body (TipTap doc JSON) |
 | `PUT /api/stories/{id}/nodes/{nodeId}/script` | Script block (SCENE in SCRIPT stories) |
 | `PUT /api/stories/{id}/nodes/{nodeId}/meta` | Free-form meta JSON |
+| `GET/PUT /api/stories/{id}/nodes/{nodeId}/notes` | Private per-node scratchpad (`meta.notes`; never published) |
 | `DELETE /api/stories/{id}/nodes/{nodeId}` | Delete subtree |
 | `POST /api/stories/{id}/nodes/{nodeId}/analyze` | AI prose analysis (draft-access) |
 | `GET/POST /api/stories/{id}/characters` · `/lore` · `/members` · `/releases` | Supporting panels |

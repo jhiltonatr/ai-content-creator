@@ -104,6 +104,10 @@ export const api = {
     request('PUT', `/api/stories/${storyId}/nodes/${nodeId}/body`, body),
   updateScript: (storyId: number, nodeId: number, body: Record<string, unknown>) =>
     request('PUT', `/api/stories/${storyId}/nodes/${nodeId}/script`, body),
+  nodeNotes: (storyId: number, nodeId: number) =>
+    request('GET', `/api/stories/${storyId}/nodes/${nodeId}/notes`),
+  updateNotes: (storyId: number, nodeId: number, body: { expectedVersion: number; changeId: string; note: string | null }) =>
+    request('PUT', `/api/stories/${storyId}/nodes/${nodeId}/notes`, body),
   deleteNode: (storyId: number, nodeId: number) => request('DELETE', `/api/stories/${storyId}/nodes/${nodeId}`),
 
   checkpoints: (storyId: number, nodeId: number) =>

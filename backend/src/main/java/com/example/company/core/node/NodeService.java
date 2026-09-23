@@ -15,6 +15,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
+import tools.jackson.databind.node.ObjectNode;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -191,6 +192,50 @@ public class NodeService {
         ensureVersion(request.expectedVersion(), current);
         return nodes.updateMeta(storyId, nodeId, current.version(), request.changeId(), request.payload(), userId)
                 .orElseGet(() -> conflict(storyId, nodeId));
+    }
+
+    /**
+     * The writer's private scratchpad for a node. Draft-access members may read it; it is never
+     * part of a release (see {@link com.example.company.core.release.ReleaseNode}).
+     */
+    public NodeNotes notes(long userId, long storyId, long nodeId) {
+        access.require(userId, storyId, AccessChecker.Capability.READ_DRAFTS);
+        return new NodeNotes(noteOf(require(storyId, nodeId).meta()));
+    }
+
+    /**
+     * Writes the scratchpad into {@code meta.notes}, preserving any other meta fields. A blank
+     * note removes the slot. Riding {@code expectedVersion}/{@code changeId} and the node version
+     * counter means notes conflict and replay exactly like the other payloads.
+     */
+    @Transactional
+    public NodeFull updateNotes(long userId, long storyId, long nodeId, SaveNotesRequest request) {
+        access.require(userId, storyId, AccessChecker.Capability.WRITE_CONTENT);
+        NodeFull current = require(storyId, nodeId);
+        if (isIdempotent(request.changeId(), current)) {
+            return current;
+        }
+        ensureVersion(request.expectedVersion(), current);
+
+        ObjectNode updatedMeta = current.meta() instanceof ObjectNode meta
+                ? meta.deepCopy()
+                : mapper.createObjectNode();
+        String note = request.note();
+        if (note == null || note.isBlank()) {
+            updatedMeta.remove("notes");
+        } else {
+            updatedMeta.put("notes", note);
+        }
+        return nodes.updateMeta(storyId, nodeId, current.version(), request.changeId(), updatedMeta, userId)
+                .orElseGet(() -> conflict(storyId, nodeId));
+    }
+
+    private String noteOf(JsonNode meta) {
+        if (meta == null) {
+            return null;
+        }
+        JsonNode notes = meta.get("notes");
+        return notes != null && notes.isTextual() ? notes.asText() : null;
     }
 
     @Transactional

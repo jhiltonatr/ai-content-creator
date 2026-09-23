@@ -37,6 +37,13 @@ public class NodeController {
         return nodes.detail(userId, storyId, nodeId);
     }
 
+    @GetMapping("/{nodeId}/notes")
+    public NodeNotes notes(@CurrentUserId Long userId,
+                           @PathVariable long storyId,
+                           @PathVariable long nodeId) {
+        return nodes.notes(userId, storyId, nodeId);
+    }
+
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     public NodeFull create(@CurrentUserId Long userId,
@@ -83,6 +90,14 @@ public class NodeController {
                                @PathVariable long nodeId,
                                @Valid @RequestBody PayloadUpdateRequest request) {
         return nodes.updateMeta(userId, storyId, nodeId, request);
+    }
+
+    @PutMapping("/{nodeId}/notes")
+    public NodeFull updateNotes(@CurrentUserId Long userId,
+                                @PathVariable long storyId,
+                                @PathVariable long nodeId,
+                                @Valid @RequestBody SaveNotesRequest request) {
+        return nodes.updateNotes(userId, storyId, nodeId, request);
     }
 
     @DeleteMapping("/{nodeId}")
