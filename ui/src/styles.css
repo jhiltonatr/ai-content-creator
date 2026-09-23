@@ -1205,6 +1205,14 @@ h1 {
   border-bottom-color: var(--accent);
 }
 
+.palette-prompt {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 16px;
+}
+
 .palette-list {
   max-height: 58vh;
   overflow: auto;

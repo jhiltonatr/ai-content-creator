@@ -19,6 +19,7 @@ export function useWorkspace({ storyId, myRole }: { storyId: number; myRole: Rol
   );
 
   const [story, setStory] = useState<Story | null>(null);
+  const [stories, setStories] = useState<Story[]>([]);
   const [tree, setTree] = useState<NodeSummary[]>([]);
   const rootKinds = ROOT_KINDS[story?.storyType ?? 'NOVEL'];
   const [selectedId, setSelectedId] = useState<number | null>(null);
@@ -31,6 +32,7 @@ export function useWorkspace({ storyId, myRole }: { storyId: number; myRole: Rol
     api
       .stories()
       .then(async (all: Story[]) => {
+        setStories(all);
         const s = all.find((x) => x.id === storyId) ?? (await api.getStory(storyId));
         setStory(s);
       })
@@ -85,6 +87,7 @@ export function useWorkspace({ storyId, myRole }: { storyId: number; myRole: Rol
 
   return {
     story,
+    stories,
     tree,
     rootKinds,
     selectedId,

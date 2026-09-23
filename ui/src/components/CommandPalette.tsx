@@ -7,6 +7,8 @@ export interface PaletteCommand {
   group: string;
   keywords?: string[];
   shortcut?: string;
+  prompt?: string;
+  submit?: (value: string) => void;
   run: () => void;
 }
 
@@ -26,7 +28,17 @@ function matches(cmd: PaletteCommand, query: string): boolean {
 export default function CommandPalette({ commands, onClose }: CommandPaletteProps) {
   const [query, setQuery] = useState('');
   const [active, setActive] = useState(0);
+  const [promptCommand, setPromptCommand] = useState<PaletteCommand | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  const activate = (cmd: PaletteCommand) => {
+    if (cmd.prompt && cmd.submit) {
+      setQuery('');
+      setPromptCommand(cmd);
+    } else {
+      cmd.run();
+    }
+  };
 
   const filtered = useMemo(() => {
     const hits = commands.filter((c) => matches(c, query));
@@ -62,10 +74,25 @@ export default function CommandPalette({ commands, onClose }: CommandPaletteProp
 
   const runAt = (idx: number) => {
     const cmd = filtered[idx];
-    if (cmd) cmd.run();
+    if (cmd) activate(cmd);
   };
 
   const onKeyDown = (e: React.KeyboardEvent) => {
+    if (promptCommand) {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        const value = (e.target as HTMLInputElement).value.trim();
+        if (value) {
+          promptCommand.submit?.(value);
+          onClose();
+        }
+      } else if (e.key === 'Escape') {
+        e.preventDefault();
+        setPromptCommand(null);
+        inputRef.current?.focus();
+      }
+      return;
+    }
     if (e.key === 'ArrowDown') {
       e.preventDefault();
       setActive((i) => (filtered.length === 0 ? 0 : (i + 1) % filtered.length));
@@ -101,34 +128,41 @@ export default function CommandPalette({ commands, onClose }: CommandPaletteProp
           className="palette-input"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          placeholder="Type a command or search for a scene…"
+          placeholder={promptCommand ? promptCommand.prompt ?? '' : 'Type a command or search for a scene…'}
           autoComplete="off"
           spellCheck={false}
         />
-        <div className="palette-list">
-          {groups.map((g) => (
-            <div key={g.group} className="palette-group">
-              <div className="palette-group-label">{g.group}</div>
-              {g.items.map((c) => {
-                const idx = offsets.get(c.id) ?? 0;
-                return (
-                  <button
-                    key={c.id}
-                    type="button"
-                    className={`palette-item${idx === active ? ' active' : ''}`}
-                    onMouseEnter={() => setActive(idx)}
-                    onClick={() => c.run()}
-                  >
-                    <span className="palette-label">{c.label}</span>
-                    {c.hint && <span className="palette-hint">{c.hint}</span>}
-                    {c.shortcut && <kbd className="palette-kbd">{c.shortcut}</kbd>}
-                  </button>
-                );
-              })}
-            </div>
-          ))}
-          {filtered.length === 0 && <div className="palette-empty">No matching commands.</div>}
-        </div>
+        {promptCommand ? (
+          <div className="palette-prompt">
+            <strong>{promptCommand.label}</strong>
+            <span className="muted small">Enter to create · Esc to cancel</span>
+          </div>
+        ) : (
+          <div className="palette-list">
+            {groups.map((g) => (
+              <div key={g.group} className="palette-group">
+                <div className="palette-group-label">{g.group}</div>
+                {g.items.map((c) => {
+                  const idx = offsets.get(c.id) ?? 0;
+                  return (
+                    <button
+                      key={c.id}
+                      type="button"
+                      className={`palette-item${idx === active ? ' active' : ''}`}
+                      onMouseEnter={() => setActive(idx)}
+                      onClick={() => activate(c)}
+                    >
+                      <span className="palette-label">{c.label}</span>
+                      {c.hint && <span className="palette-hint">{c.hint}</span>}
+                      {c.shortcut && <kbd className="palette-kbd">{c.shortcut}</kbd>}
+                    </button>
+                  );
+                })}
+              </div>
+            ))}
+            {filtered.length === 0 && <div className="palette-empty">No matching commands.</div>}
+          </div>
+        )}
       </div>
     </div>
   );

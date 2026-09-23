@@ -11,7 +11,7 @@ import { useHotkeys } from '../hooks/useHotkeys';
 import { ROOT_KINDS, childKinds, kindLabel } from '../lib/archetypes';
 import { AI_STATE_EVENT, emitAiToggle, type AiStateDetail } from '../lib/aiBridge';
 import { PANEL_TABS } from '../lib/panels';
-import type { NodeKind, NodeSummary, Role } from '../api/types';
+import type { NodeKind, NodeSummary, Role, StoryType } from '../api/types';
 import ReaderView from './ReaderView';
 
 interface WorkspaceProps {
@@ -41,9 +41,18 @@ function isMac(): boolean {
   return typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform);
 }
 
+const STORY_KIND_LABELS: Record<StoryType, string> = {
+  NOVEL: 'Novel',
+  RPG: 'RPG',
+  SCRIPT: 'Script',
+};
+
+const STORY_TYPES: StoryType[] = ['NOVEL', 'RPG', 'SCRIPT'];
+
 export default function Workspace({ storyId, myRole }: WorkspaceProps) {
   const {
     story,
+    stories,
     tree,
     rootKinds,
     selectedId,
@@ -132,6 +141,26 @@ export default function Workspace({ storyId, myRole }: WorkspaceProps) {
     [storyId, refresh, closePalette],
   );
 
+  const goToStory = useCallback(
+    (targetId: number) => {
+      window.location.hash = `#/story/${targetId}`;
+      closePalette();
+    },
+    [closePalette],
+  );
+
+  const createStory = useCallback(
+    async (title: string, storyType: StoryType) => {
+      try {
+        const created = await api.createStory({ title, storyType, synopsis: '' });
+        window.location.hash = `#/story/${created.id}`;
+      } catch (e) {
+        setMessage((e as Error).message);
+      }
+    },
+    [setMessage],
+  );
+
   const commands = useMemo<PaletteCommand[]>(() => {
     const list: PaletteCommand[] = [];
 
@@ -163,6 +192,19 @@ export default function Workspace({ storyId, myRole }: WorkspaceProps) {
           run: () => void createChild(kind, selectedNode?.id ?? null),
         });
       }
+    }
+
+    for (const type of STORY_TYPES) {
+      list.push({
+        id: `new-story-${type}`,
+        label: `New ${STORY_KIND_LABELS[type]} story`,
+        hint: 'Create in this workspace',
+        group: 'Create',
+        keywords: ['new story', 'create story', 'add story', type.toLowerCase()],
+        prompt: 'Story title',
+        submit: (value) => void createStory(value, type),
+        run: () => undefined,
+      });
     }
 
     list.push(
@@ -230,11 +272,25 @@ export default function Workspace({ storyId, myRole }: WorkspaceProps) {
       },
     });
 
+    for (const s of stories) {
+      if (s.id === storyId) continue;
+      list.push({
+        id: `open-story-${s.id}`,
+        label: s.title,
+        hint: `${s.storyType} · ${s.myRole}`,
+        group: 'Navigate',
+        keywords: ['switch', 'open', 'story', s.storyType.toLowerCase()],
+        run: () => goToStory(s.id),
+      });
+    }
+
     return list;
   }, [
     flatNodes,
     canWrite,
     story,
+    stories,
+    storyId,
     selectedNode,
     aiOn,
     aiFindings,
@@ -242,6 +298,8 @@ export default function Workspace({ storyId, myRole }: WorkspaceProps) {
     panelTab,
     zen,
     createChild,
+    createStory,
+    goToStory,
     selectPanelTab,
     toggleTree,
     toggleZen,
