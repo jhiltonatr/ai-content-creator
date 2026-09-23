@@ -111,10 +111,13 @@ class TenancyTest extends ApiTestBase {
                 .anyMatch(n -> n.get("id").longValue() == story
                         && "VIEWER".equals(n.get("myRole").asString()));
 
-        // viewer may read the release snapshot but never the working tree
-        mvc.perform(MockMvcRequestBuilders.get("/api/stories/" + story + "/releases/" + version)
+        // viewer may read the latest release snapshot but never the working tree or release history
+        mvc.perform(MockMvcRequestBuilders.get("/api/stories/" + story + "/releases/latest")
                         .header("X-User-Id", dave))
                 .andExpect(MockMvcResultMatchers.status().isOk());
+        mvc.perform(MockMvcRequestBuilders.get("/api/stories/" + story + "/releases/" + version)
+                        .header("X-User-Id", dave))
+                .andExpect(MockMvcResultMatchers.status().isForbidden());
         mvc.perform(MockMvcRequestBuilders.get("/api/stories/" + story + "/nodes")
                         .header("X-User-Id", dave))
                 .andExpect(MockMvcResultMatchers.status().isForbidden());

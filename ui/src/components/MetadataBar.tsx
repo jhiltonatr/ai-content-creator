@@ -7,10 +7,14 @@ interface MetadataBarProps {
   status: NodeStatus;
   canWrite: boolean;
   saving: boolean;
+  checkpointing: boolean;
+  checkpointCount: number;
   savedAt: string | null;
   onTitleChange: (v: string) => void;
   onStatusChange: (v: NodeStatus) => void;
   onSave: () => void;
+  onCheckpoint: () => void;
+  onHistory: () => void;
   onDelete?: () => void;
 }
 
@@ -20,10 +24,14 @@ export default function MetadataBar({
   status,
   canWrite,
   saving,
+  checkpointing,
+  checkpointCount,
   savedAt,
   onTitleChange,
   onStatusChange,
   onSave,
+  onCheckpoint,
+  onHistory,
   onDelete,
 }: MetadataBarProps) {
   const [minimized, toggle] = useBooleanPref('storyforge:meta-minimized', false);
@@ -45,6 +53,16 @@ export default function MetadataBar({
             {saving ? 'Saving…' : 'Save'}
           </button>
         )}
+        {canWrite && (
+          <button
+            className="small"
+            disabled={checkpointing || saving}
+            title="Snapshot this node now so it can be diffed and restored later"
+            onClick={onCheckpoint}
+          >
+            {checkpointing ? 'Checkpoint…' : 'Checkpoint'}
+          </button>
+        )}
         <button
           className="small icon-btn"
           title={minimized ? 'Restore full header' : 'Minimize to title + save'}
@@ -58,6 +76,9 @@ export default function MetadataBar({
               <option value="DRAFT">draft</option>
               <option value="DONE">done</option>
             </select>
+            <button className="small" title="Revision history & checkpoints" onClick={onHistory}>
+              History{checkpointCount > 0 ? ` (${checkpointCount})` : ''}
+            </button>
             {onDelete && (
               <button className="small danger" onClick={onDelete}>
                 Delete

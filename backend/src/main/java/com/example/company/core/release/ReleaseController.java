@@ -36,6 +36,11 @@ public class ReleaseController {
         return releases.create(userId, storyId, request);
     }
 
+    @GetMapping("/latest")
+    public ReleaseRecord latest(@CurrentUserId Long userId, @PathVariable long storyId) {
+        return releases.latest(userId, storyId);
+    }
+
     @GetMapping("/{version}")
     public ReleaseRecord detail(@CurrentUserId Long userId,
                                 @PathVariable long storyId,

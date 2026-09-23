@@ -105,6 +105,15 @@ export const api = {
     request('PUT', `/api/stories/${storyId}/nodes/${nodeId}/script`, body),
   deleteNode: (storyId: number, nodeId: number) => request('DELETE', `/api/stories/${storyId}/nodes/${nodeId}`),
 
+  checkpoints: (storyId: number, nodeId: number) =>
+    request('GET', `/api/stories/${storyId}/nodes/${nodeId}/checkpoints`),
+  checkpoint: (storyId: number, nodeId: number, checkpointId: number) =>
+    request('GET', `/api/stories/${storyId}/nodes/${nodeId}/checkpoints/${checkpointId}`),
+  createCheckpoint: (storyId: number, nodeId: number, body: { note?: string | null }) =>
+    request('POST', `/api/stories/${storyId}/nodes/${nodeId}/checkpoints`, body),
+  restoreCheckpoint: (storyId: number, nodeId: number, checkpointId: number, body: Record<string, unknown>) =>
+    request('POST', `/api/stories/${storyId}/nodes/${nodeId}/checkpoints/${checkpointId}/restore`, body),
+
   analyzeNode: (storyId: number, nodeId: number, doc: unknown, signal?: AbortSignal) =>
     request('POST', `/api/stories/${storyId}/nodes/${nodeId}/analyze`, { doc }, signal),
 
@@ -136,6 +145,7 @@ export const api = {
     request('DELETE', `/api/stories/${storyId}/members/${userId}`),
 
   releases: (storyId: number) => request('GET', `/api/stories/${storyId}/releases`),
+  releaseLatest: (storyId: number) => request('GET', `/api/stories/${storyId}/releases/latest`),
   createRelease: (storyId: number, body: { name?: string; notes?: string }) =>
     request('POST', `/api/stories/${storyId}/releases`, body),
 };

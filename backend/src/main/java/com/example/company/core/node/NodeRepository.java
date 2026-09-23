@@ -202,6 +202,85 @@ public class NodeRepository {
         jdbc.sql("DELETE FROM nodes WHERE id = :id").param("id", id).update();
     }
 
+    public Optional<NodeFull> restoreFromPayloads(long storyId,
+                                                  long id,
+                                                  long expectedVersion,
+                                                  String changeId,
+                                                  String title,
+                                                  tools.jackson.databind.JsonNode body,
+                                                  tools.jackson.databind.JsonNode script,
+                                                  tools.jackson.databind.JsonNode meta,
+                                                  long userId) {
+        int updated = jdbc.sql("""
+                    UPDATE nodes
+                    SET title = :title,
+                        body = :body,
+                        script = :script,
+                        meta = :meta,
+                        version = version + 1,
+                        updated_by = :userId,
+                        updated_at = CURRENT_TIMESTAMP,
+                        last_change_id = :changeId
+                    WHERE id = :id AND story_id = :storyId AND version = :expectedVersion
+                """)
+                .param("title", title)
+                .param("body", json.write(body))
+                .param("script", json.write(script))
+                .param("meta", json.write(meta))
+                .param("changeId", changeId)
+                .param("id", id)
+                .param("storyId", storyId)
+                .param("expectedVersion", expectedVersion)
+                .param("userId", userId)
+                .update();
+        return updated == 0 ? Optional.empty() : findById(storyId, id);
+    }
+
+    /**
+     * Marks every descendant of {@code ancestorId} as done (never the ancestor
+     * itself — the caller controls that). Descendants already done are skipped so
+     * only genuinely newly-done nodes bump version. Returns the number cascaded.
+     * Split into a recursive SELECT + plain UPDATE because H2 does not accept
+     * data-modifying statements after WITH.
+     */
+    public int markDescendantsDone(long storyId, long ancestorId, String changeId, long userId) {
+        List<Long> descendants = jdbc.sql("""
+                    WITH RECURSIVE descendants(id) AS (
+                        SELECT id FROM nodes
+                        WHERE story_id = :storyId AND parent_id = :ancestorId
+                        UNION ALL
+                        SELECT n.id
+                        FROM nodes n
+                        JOIN descendants d ON n.parent_id = d.id
+                        WHERE n.story_id = :storyId
+                    )
+                    SELECT id FROM descendants
+                """)
+                .param("storyId", storyId)
+                .param("ancestorId", ancestorId)
+                .query(Long.class)
+                .list();
+        if (descendants.isEmpty()) {
+            return 0;
+        }
+        return jdbc.sql("""
+                    UPDATE nodes
+                    SET status = 'DONE',
+                        version = version + 1,
+                        updated_by = :userId,
+                        updated_at = CURRENT_TIMESTAMP,
+                        last_change_id = :changeId
+                    WHERE story_id = :storyId
+                      AND id IN (:descendantIds)
+                      AND status <> 'DONE'
+                """)
+                .param("storyId", storyId)
+                .param("descendantIds", descendants)
+                .param("changeId", changeId)
+                .param("userId", userId)
+                .update();
+    }
+
     private NodeFull map(java.sql.ResultSet rs, int rowNum) throws java.sql.SQLException {
         tools.jackson.databind.JsonNode body = json.parse(rs.getString("body"));
         tools.jackson.databind.JsonNode script = json.parse(rs.getString("script"));

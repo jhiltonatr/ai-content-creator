@@ -133,16 +133,16 @@ Rules:
 3. **Per-section language override** — Story sets the default language; any book/chapter/scene may override it individually. Translations explored later (the `language` field on Node is the future seam).
 4. **Generic node graph + archetype config** — story types are config, not schema.
 5. **Role-based multi-tenancy** — story-level memberships with roles (owner | collaborator | editor | viewer); Core is the enforcement point on every query; drafts never leak to viewers.
-6. **Publishing = Release snapshot** — `Node.status` (draft|done) tracks authoring state; public visibility is a versioned `Release.nodeIds` snapshot (the seam for future revisions).
+6. **Publishing = Release snapshot** — `Node.status` (draft|done) tracks authoring state; public visibility is a versioned `Release.nodeIds` snapshot (the seam for future revisions). A release publishes every node marked `done` plus its ancestors as a connected work. Marking an ancestor node `done` cascades to all its descendants (version bump + same `changeId`), so publishing a branch publishes the whole subtree; reverting an ancestor to `draft` does NOT un-draft descendants.
 7. **Admin-created accounts + bearer-token login** — no self-registration; admins manage users. Sessions are opaque bearer tokens (SHA-256-hashed in `auth_tokens`, 7-day TTL). `X-User-Id` header trust is dev/test-only (`app.trust-x-user-id=true`). Disabling a user or resetting their password revokes all their tokens; the last enabled admin and self-demotion/disable/delete are protected.
 8. **System role vs membership role** — `systemRole` (`USER`|`ADMIN`) is site-wide on User; story-level `Role` (`OWNER/COLLABORATOR/EDITOR/VIEWER`) remains the tenancy gate. Memberships no longer auto-create users.
 9. **Personal settings as JSONB** — per-user preferences (default language, theme LIGHT/DARK) live in `users.settings` (JSONB), exposed via `GET/PUT /api/me/settings`; the UI applies the theme via `data-theme` CSS-variable overrides so future themes are config, not schema. Profile self-service (`PUT /api/me`, `POST /api/me/password`) verifies the current password and revokes all that user's sessions.
+10. **Explicit checkpoints as the revision seam + version-pinned releases** — `node_checkpoints` snapshots a node's `title`/`body`/`script`/`meta` at the `node.version` it captured, giving writers an explicit checkpoint timeline that is an inspectable/undoable safety net over the raw 409 conflict flow (restore first snapshots the current working set as a "Pre-revert copy" auto-checkpoint, then replays payloads via the same `expectedVersion`/`changeId` protocol — idempotent replay, 409 on stale). `ReleaseNode` now pins the node `version` (and `checkpointId` when exactly one matches) so a release is an unambiguous point-in-time snapshot. Viewers are restricted to a single `GET /releases/latest`; the release list and arbitrary `GET /releases/{version}` require `READ_DRAFTS`, so viewers can never read draft-time history or select an older published snapshot.
 
 ## Open questions / next steps
 
 - Framework for UI and gateway (React/Next.js vs other, JS vs TS).
 - Java service framework specifics (Spring Boot), API style (REST vs gRPC).
-- Node revisioning/versioning & autosave strategy.
 - Event bus choice (Kafka/RabbitMQ) vs simpler webhooks.
 - Multi-user live collaboration (joint editing), per-node ACL overrides.
 

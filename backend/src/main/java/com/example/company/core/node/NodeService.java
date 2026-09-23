@@ -102,9 +102,16 @@ public class NodeService {
         }
         String language = request.language();
 
-        return nodes.updateMetadata(storyId, nodeId, current.version(), request.changeId(), title, current.kind(),
+        NodeFull updated = nodes.updateMetadata(storyId, nodeId, current.version(), request.changeId(), title, current.kind(),
                         current.parentId(), current.sortOrder(), language, status, userId)
                 .orElseGet(() -> conflict(storyId, nodeId));
+
+        // marking an ancestor done marks its whole subtree done, so a release of the
+        // branch publishes the complete work. Reverting to draft is left alone.
+        if (status == NodeStatus.DONE && current.status() != NodeStatus.DONE) {
+            nodes.markDescendantsDone(storyId, nodeId, request.changeId(), userId);
+        }
+        return updated;
     }
 
     @Transactional

@@ -1,12 +1,13 @@
 interface MessageBannerProps {
   msg: string | null;
-  onClose: () => void;
+  kind?: 'error' | 'ok';
+  onClose?: () => void;
 }
 
-export default function MessageBanner({ msg, onClose }: MessageBannerProps) {
+export default function MessageBanner({ msg, kind = 'error', onClose }: MessageBannerProps) {
   if (!msg) return null;
   return (
-    <div className="banner error" onClick={onClose}>
+    <div className={`banner ${kind}`} onClick={onClose}>
       {msg}
     </div>
   );

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { api, ApiError } from '../api/client';
-import type { Character, Lore, NodeFull, NodeStatus, ScriptBlock } from '../api/types';
+import type { Character, CheckpointSummary, Lore, NodeFull, NodeStatus, ScriptBlock } from '../api/types';
 import { CATALOG_CHANGED_EVENT } from '../lib/catalog';
 import type { TipTapDoc } from '../lib/tiptap';
 import { countDocWords, countScriptWords } from '../lib/words';
@@ -31,15 +31,19 @@ export function useNodeEditor({ storyId, nodeId, onChanged, onDelete }: UseNodeE
   const [conflict, setConflict] = useState<NodeFull | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [restoring, setRestoring] = useState(false);
+  const [checkpointing, setCheckpointing] = useState(false);
   const [savedAt, setSavedAt] = useState<string | null>(null);
   const [editorKey, setEditorKey] = useState<number>(nodeId);
   const [bodyWords, setBodyWords] = useState(0);
   const [scriptWords, setScriptWords] = useState(0);
+  const [checkpoints, setCheckpoints] = useState<CheckpointSummary[]>([]);
 
   const nodeRef = useRef<NodeFull | null>(null);
   const pendingRef = useRef<PendingSave | null>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const savingRef = useRef(false);
+  const conflictRef = useRef<NodeFull | null>(null);
 
   useEffect(() => {
     nodeRef.current = node;
@@ -56,6 +60,15 @@ export function useNodeEditor({ storyId, nodeId, onChanged, onDelete }: UseNodeE
       .catch(() => undefined);
   }, [storyId]);
 
+  const reloadCheckpoints = useCallback(() => {
+    const current = nodeRef.current;
+    if (!current) return;
+    api
+      .checkpoints(storyId, current.id)
+      .then(setCheckpoints)
+      .catch(() => undefined);
+  }, [storyId]);
+
   const load = useCallback(
     (nodeIdToLoad: number) => {
       api
@@ -69,14 +82,16 @@ export function useNodeEditor({ storyId, nodeId, onChanged, onDelete }: UseNodeE
           setBodyWords(countDocWords(n.body as TipTapDoc | null));
           setScriptWords(countScriptWords(n.script));
           pendingRef.current = null;
+          conflictRef.current = null;
           setConflict(null);
           setSavedAt(null);
           setEditorKey(n.id + n.version);
         })
         .catch((e) => setError(e.message));
       refreshCatalog();
+      reloadCheckpoints();
     },
-    [storyId, refreshCatalog],
+    [storyId, refreshCatalog, reloadCheckpoints],
   );
 
   useEffect(() => {
@@ -94,50 +109,66 @@ export function useNodeEditor({ storyId, nodeId, onChanged, onDelete }: UseNodeE
     return () => window.removeEventListener(CATALOG_CHANGED_EVENT, handler);
   }, [storyId, refreshCatalog]);
 
+  const surfaceError = useCallback((e: unknown) => {
+    if (e instanceof ApiError && e.status === 409 && e.current) {
+      conflictRef.current = e.current;
+      setConflict(e.current);
+    } else {
+      setError((e as Error).message);
+    }
+  }, []);
+
+  // Core write operations assume the caller manages savingRef/saving state.
+  const flushBodyOrScript = useCallback(
+    async (pending: PendingSave): Promise<boolean> => {
+      const current = nodeRef.current;
+      if (!current) return false;
+      try {
+        const updated =
+          pending.kind === 'body'
+            ? await api.updateBody(storyId, current.id, {
+                expectedVersion: current.version,
+                changeId: pending.changeId,
+                payload: pending.doc,
+              })
+            : await api.updateScript(storyId, current.id, {
+                expectedVersion: current.version,
+                changeId: pending.changeId,
+                payload: pending.script,
+              });
+        if (pendingRef.current && pendingRef.current.changeId === pending.changeId) {
+          pendingRef.current = null;
+        }
+        nodeRef.current = updated;
+        setNode(updated);
+        setScriptDraft(updated.script ?? null);
+        setSavedAt(new Date().toLocaleTimeString());
+        onChanged();
+        return true;
+      } catch (e) {
+        surfaceError(e);
+        return false;
+      }
+    },
+    [storyId, onChanged, surfaceError],
+  );
+
   const flush = useCallback(async () => {
     const pending = pendingRef.current;
-    const current = nodeRef.current;
-    if (!pending || !current || savingRef.current) return;
+    if (!pending || !nodeRef.current || savingRef.current) return;
     savingRef.current = true;
     setSaving(true);
     setError(null);
     try {
-      let updated: NodeFull;
-      if (pending.kind === 'body') {
-        updated = await api.updateBody(storyId, current.id, {
-          expectedVersion: current.version,
-          changeId: pending.changeId,
-          payload: pending.doc,
-        });
-      } else {
-        updated = await api.updateScript(storyId, current.id, {
-          expectedVersion: current.version,
-          changeId: pending.changeId,
-          payload: pending.script,
-        });
-      }
-      if (pendingRef.current && pendingRef.current.changeId === pending.changeId) {
-        pendingRef.current = null;
-      }
-      nodeRef.current = updated;
-      setNode(updated);
-      setSavedAt(new Date().toLocaleTimeString());
-      onChanged();
-      // a newer edit landed while saving — keep draining
-      if (pendingRef.current) {
+      const ok = await flushBodyOrScript(pending);
+      if (ok && pendingRef.current) {
         void flush();
-      }
-    } catch (e) {
-      if (e instanceof ApiError && e.status === 409) {
-        setConflict(e.current ?? null);
-      } else {
-        setError((e as Error).message);
       }
     } finally {
       savingRef.current = false;
       setSaving(false);
     }
-  }, [storyId, onChanged]);
+  }, [flushBodyOrScript]);
 
   const scheduleDebounced = useCallback(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
@@ -168,12 +199,9 @@ export function useNodeEditor({ storyId, nodeId, onChanged, onDelete }: UseNodeE
     [scheduleDebounced],
   );
 
-  const saveMetadata = useCallback(async () => {
+  const saveMetadataCore = useCallback(async (): Promise<boolean> => {
     const current = nodeRef.current;
-    if (!current || savingRef.current) return;
-    savingRef.current = true;
-    setSaving(true);
-    setError(null);
+    if (!current) return false;
     try {
       const trimmed = title.trim();
       const updated = await api.updateNode(storyId, current.id, {
@@ -188,46 +216,129 @@ export function useNodeEditor({ storyId, nodeId, onChanged, onDelete }: UseNodeE
       setStatus(updated.status);
       setSavedAt(new Date().toLocaleTimeString());
       onChanged();
+      return true;
     } catch (e) {
-      if (e instanceof ApiError && e.status === 409) {
-        setConflict(e.current ?? null);
-      } else {
-        setError((e as Error).message);
-      }
+      surfaceError(e);
+      return false;
+    }
+  }, [storyId, title, status, onChanged, surfaceError]);
+
+  const saveMetadata = useCallback(async () => {
+    if (!nodeRef.current || savingRef.current) return;
+    savingRef.current = true;
+    setSaving(true);
+    setError(null);
+    try {
+      await saveMetadataCore();
     } finally {
       savingRef.current = false;
       setSaving(false);
     }
-  }, [storyId, title, status, onChanged]);
+  }, [saveMetadataCore]);
+
+  /** Persists any pending edits first so the checkpoint snapshot is complete. */
+  const saveCheckpoint = useCallback(
+    async (note?: string | null): Promise<boolean> => {
+      if (!nodeRef.current || savingRef.current) return false;
+      savingRef.current = true;
+      setCheckpointing(true);
+      setError(null);
+      try {
+        if (pendingRef.current) {
+          const flushed = await flushBodyOrScript(pendingRef.current);
+          if (!flushed) return false;
+        }
+        const current = nodeRef.current;
+        if (!current) return false;
+        const trimmed = title.trim();
+        if ((trimmed && trimmed !== current.title) || status !== current.status) {
+          const saved = await saveMetadataCore();
+          if (!saved) return false;
+        }
+        await api.createCheckpoint(storyId, current.id, { note: note || null });
+        await reloadCheckpoints();
+        setSavedAt(new Date().toLocaleTimeString());
+        return true;
+      } catch (e) {
+        surfaceError(e);
+        return false;
+      } finally {
+        savingRef.current = false;
+        setCheckpointing(false);
+      }
+    },
+    [storyId, title, status, flushBodyOrScript, saveMetadataCore, reloadCheckpoints, surfaceError],
+  );
+
+  const restoreToCheckpoint = useCallback(
+    async (checkpointId: number): Promise<boolean> => {
+      const current = nodeRef.current;
+      if (!current || savingRef.current) return false;
+      savingRef.current = true;
+      setRestoring(true);
+      setError(null);
+      try {
+        const updated = await api.restoreCheckpoint(storyId, current.id, checkpointId, {
+          expectedVersion: current.version,
+          changeId: crypto.randomUUID(),
+        });
+        nodeRef.current = updated;
+        setNode(updated);
+        setTitle(updated.title);
+        setStatus(updated.status);
+        setScriptDraft(updated.script ?? null);
+        setBodyWords(countDocWords(updated.body as TipTapDoc | null));
+        setScriptWords(countScriptWords(updated.script));
+        pendingRef.current = null;
+        conflictRef.current = null;
+        setConflict(null);
+        setSavedAt(null);
+        setEditorKey(updated.id + updated.version);
+        onChanged();
+        await reloadCheckpoints();
+        return true;
+      } catch (e) {
+        surfaceError(e);
+        return false;
+      } finally {
+        savingRef.current = false;
+        setRestoring(false);
+      }
+    },
+    [storyId, onChanged, reloadCheckpoints, surfaceError],
+  );
 
   const loadTheirs = useCallback(() => {
-    if (!conflict) return;
-    nodeRef.current = conflict;
-    setNode(conflict);
-    setTitle(conflict.title);
-    setStatus(conflict.status);
-    setScriptDraft(conflict.script ?? null);
-    setBodyWords(countDocWords(conflict.body as TipTapDoc | null));
-    setScriptWords(countScriptWords(conflict.script));
+    const theirs = conflictRef.current;
+    if (!theirs) return;
+    nodeRef.current = theirs;
+    setNode(theirs);
+    setTitle(theirs.title);
+    setStatus(theirs.status);
+    setScriptDraft(theirs.script ?? null);
+    setBodyWords(countDocWords(theirs.body as TipTapDoc | null));
+    setScriptWords(countScriptWords(theirs.script));
     pendingRef.current = null;
+    conflictRef.current = null;
     setConflict(null);
     setSavedAt(null);
-    setEditorKey(conflict.id + conflict.version);
-  }, [conflict]);
+    setEditorKey(theirs.id + theirs.version);
+  }, []);
 
   const keepMine = useCallback(() => {
-    if (!conflict) return;
+    const theirs = conflictRef.current;
+    if (!theirs) return;
     const current = nodeRef.current;
-    if (!current) return;
-    if (conflict.version > current.version) {
-      nodeRef.current = { ...current, version: conflict.version };
-      setNode({ ...current, version: conflict.version });
+    if (current && theirs.version > current.version) {
+      nodeRef.current = { ...current, version: theirs.version };
+      setNode({ ...current, version: theirs.version });
     }
+    conflictRef.current = null;
     setConflict(null);
     if (pendingRef.current) {
       void flush();
     }
-  }, [conflict, flush]);
+  }, [flush]);
 
   const remove = useCallback(async () => {
     if (!node || !window.confirm(`Delete "${node.title}" and everything under it?`)) return;
@@ -252,12 +363,18 @@ export function useNodeEditor({ storyId, nodeId, onChanged, onDelete }: UseNodeE
     error,
     setError,
     saving,
+    restoring,
+    checkpointing,
     savedAt,
     editorKey,
+    checkpoints,
+    reloadCheckpoints,
     wordCount: bodyWords + scriptWords,
     onBodyChange,
     onScriptChange,
     saveMetadata,
+    saveCheckpoint,
+    restoreToCheckpoint,
     loadTheirs,
     keepMine,
     remove,

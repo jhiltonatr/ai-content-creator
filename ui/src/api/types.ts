@@ -138,6 +138,8 @@ export interface ReleaseNode {
   kind: NodeKind;
   title: string;
   status: NodeStatus;
+  version: number;
+  checkpointId: number | null;
   body: JsonValue | null;
   script: ScriptBlock | null;
   meta: JsonValue | null;
@@ -152,6 +154,31 @@ export interface Release {
   createdBy: number;
   publishedAt: string;
   nodes: ReleaseNode[];
+}
+
+export interface CheckpointSummary {
+  id: number;
+  nodeVersion: number;
+  note: string | null;
+  createdBy: number;
+  authorName: string;
+  createdAt: string;
+  wordCount: number;
+}
+
+export interface Checkpoint {
+  id: number;
+  nodeId: number;
+  nodeVersion: number;
+  title: string;
+  body: JsonValue | null;
+  script: ScriptBlock | null;
+  meta: JsonValue | null;
+  note: string | null;
+  createdBy: number;
+  authorName: string;
+  createdAt: string;
+  wordCount: number;
 }
 
 export interface ApiErrorBody {

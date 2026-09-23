@@ -1,8 +1,39 @@
-import { useCallback, useMemo, useState, type DragEvent } from 'react';
+import { useCallback, useEffect, useMemo, useState, type DragEvent } from 'react';
 import { api } from '../api/client';
 import type { NodeKind, NodeSummary, StoryType } from '../api/types';
 import { childKinds, ROOT_KINDS } from '../lib/archetypes';
 import MoveNodeModal, { type MoveNodeTarget } from './MoveNodeModal';
+
+const COLLAPSED_KEY = (storyId: number) => `storyforge:tree-collapsed:${storyId}`;
+
+function loadCollapsed(storyId: number): Set<number> {
+  try {
+    const raw = window.localStorage.getItem(COLLAPSED_KEY(storyId));
+    if (!raw) return new Set<number>();
+    const parsed: unknown = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return new Set<number>();
+    return new Set<number>(parsed.filter((x): x is number => typeof x === 'number'));
+  } catch {
+    return new Set<number>();
+  }
+}
+
+function ancestorsOf(nodes: NodeSummary[], targetId: number): number[] {
+  const path: number[] = [];
+  const walk = (list: NodeSummary[], trail: number[]): boolean => {
+    for (const n of list) {
+      const next = [...trail, n.id];
+      if (n.id === targetId) {
+        path.push(...trail);
+        return true;
+      }
+      if (walk(n.children, next)) return true;
+    }
+    return false;
+  };
+  walk(nodes, []);
+  return path;
+}
 
 interface NodeTreeProps {
   nodes: NodeSummary[];
@@ -129,6 +160,8 @@ interface NodeItemProps {
   onDrop: (node: NodeSummary, parentId: number | null) => (e: DragEvent<HTMLDivElement>) => void;
   onDragEnd: () => void;
   dropFor: { id: number; pos: DropPos } | null;
+  collapsed: Set<number>;
+  onToggleCollapse: (id: number) => void;
 }
 
 function NodeItem({
@@ -153,8 +186,11 @@ function NodeItem({
   onDrop,
   onDragEnd,
   dropFor,
+  collapsed,
+  onToggleCollapse,
 }: NodeItemProps) {
   const [deleted, setDeleted] = useState(false);
+  const isCollapsed = collapsed.has(node.id);
 
   const remove = async (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -184,6 +220,20 @@ function NodeItem({
         onDrop={canWrite ? onDrop(node, parentId) : undefined}
         onDragEnd={canWrite ? onDragEnd : undefined}
       >
+        {node.children.length > 0 && (
+          <button
+            className="tree-toggle"
+            draggable={false}
+            aria-expanded={!isCollapsed}
+            title={isCollapsed ? `Expand "${node.title}"` : `Collapse "${node.title}"`}
+            onClick={(e) => {
+              e.stopPropagation();
+              onToggleCollapse(node.id);
+            }}
+          >
+            {isCollapsed ? '▶' : '▼'}
+          </button>
+        )}
         <span className="kind-tag">{node.kind === 'SCENE' || node.status === 'DONE' ? '' : node.kind}</span>
         <span className="node-title">{node.title}</span>
         <span className="word-count" title="Words in this node">
@@ -234,7 +284,7 @@ function NodeItem({
         )}
       </div>
       {canWrite && <AllowedChildren storyType={storyType} node={node} storyId={storyId} onChanged={onChanged} />}
-      {node.children.length > 0 && (
+      {!isCollapsed && node.children.length > 0 && (
         <ul>
           {node.children.map((c, i) => (
             <NodeItem
@@ -260,6 +310,8 @@ function NodeItem({
               onDrop={onDrop}
               onDragEnd={onDragEnd}
               dropFor={dropFor}
+              collapsed={collapsed}
+              onToggleCollapse={onToggleCollapse}
             />
           ))}
         </ul>
@@ -281,6 +333,35 @@ export default function NodeTree({
   const [dragId, setDragId] = useState<number | null>(null);
   const [dropTarget, setDropTarget] = useState<{ id: number; pos: DropPos } | null>(null);
   const [moveNode, setMoveNode] = useState<NodeSummary | null>(null);
+  const [collapsed, setCollapsed] = useState<Set<number>>(() => loadCollapsed(storyId));
+
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(COLLAPSED_KEY(storyId), JSON.stringify([...collapsed]));
+    } catch {
+      /* ignore */
+    }
+  }, [storyId, collapsed]);
+
+  useEffect(() => {
+    if (selectedId === null) return;
+    setCollapsed((prev) => {
+      const ancestors = ancestorsOf(nodes, selectedId);
+      if (ancestors.length === 0 || ancestors.every((a) => !prev.has(a))) return prev;
+      const next = new Set(prev);
+      for (const a of ancestors) next.delete(a);
+      return next;
+    });
+  }, [nodes, selectedId]);
+
+  const handleToggleCollapse = useCallback((id: number) => {
+    setCollapsed((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }, []);
 
   const flat = useMemo(() => flatten(nodes), [nodes]);
   const byId = useMemo(() => new Map(flat.map((f) => [f.id, f])), [flat]);
@@ -455,6 +536,8 @@ export default function NodeTree({
             onDrop={handleDrop}
             onDragEnd={handleDragEnd}
             dropFor={dropTarget}
+            collapsed={collapsed}
+            onToggleCollapse={handleToggleCollapse}
           />
         ))}
         {nodes.length === 0 && <li className="muted">No nodes yet.</li>}

@@ -1,10 +1,11 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import type { StoryType } from '../api/types';
 import { useNodeEditor } from '../hooks/useNodeEditor';
 import MetadataBar from './MetadataBar';
 import type { MentionItem } from '../lib/mentionSync';
 import RichEditor from './RichEditor';
 import ScriptEditor from './ScriptEditor';
+import CheckpointsPanel from './CheckpointsPanel';
 
 interface NodeEditorProps {
   storyId: number;
@@ -41,13 +42,24 @@ export default function NodeEditor({
     savedAt,
     editorKey,
     wordCount,
+    checkpoints,
+    checkpointing,
+    restoring,
     onBodyChange,
     onScriptChange,
     saveMetadata,
+    saveCheckpoint,
+    restoreToCheckpoint,
     loadTheirs,
     keepMine,
     remove,
   } = useNodeEditor({ storyId, nodeId, onChanged, onDelete });
+
+  const [historyOpen, setHistoryOpen] = useState(false);
+
+  useEffect(() => {
+    setHistoryOpen(false);
+  }, [nodeId]);
 
   useEffect(() => {
     if (!node) return;
@@ -73,10 +85,14 @@ export default function NodeEditor({
         status={status}
         canWrite={canWrite}
         saving={saving}
+        checkpointing={checkpointing}
+        checkpointCount={checkpoints.length}
         savedAt={savedAt}
         onTitleChange={setTitle}
         onStatusChange={setStatus}
         onSave={saveMetadata}
+        onCheckpoint={() => void saveCheckpoint()}
+        onHistory={() => setHistoryOpen(true)}
         onDelete={canWrite ? remove : undefined}
       />
       {error && (
@@ -114,6 +130,19 @@ export default function NodeEditor({
           mentions={mentions}
           storyId={storyId}
           nodeId={node.id}
+        />
+      )}
+      {historyOpen && (
+        <CheckpointsPanel
+          storyId={storyId}
+          node={node}
+          checkpoints={checkpoints}
+          canWrite={canWrite}
+          checkpointing={checkpointing}
+          restoring={restoring}
+          onSaveCheckpoint={saveCheckpoint}
+          onRestore={restoreToCheckpoint}
+          onClose={() => setHistoryOpen(false)}
         />
       )}
     </div>

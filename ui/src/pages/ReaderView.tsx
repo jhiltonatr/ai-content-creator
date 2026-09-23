@@ -7,10 +7,10 @@ interface ReaderViewProps {
   canWrite?: boolean;
 }
 
-function walkText(node: JsonValue | null | undefined, out: string[]): void {
+function collectInline(node: JsonValue | null | undefined, out: string[]): void {
   if (node === null || node === undefined) return;
   if (Array.isArray(node)) {
-    for (const child of node) walkText(child, out);
+    for (const child of node) collectInline(child, out);
     return;
   }
   if (typeof node !== 'object') {
@@ -22,10 +22,37 @@ function walkText(node: JsonValue | null | undefined, out: string[]): void {
   if (obj.type === 'mention') {
     const attrs = obj.attrs as Record<string, unknown> | undefined;
     if (typeof attrs?.label === 'string') out.push(attrs.label);
+    else if (typeof attrs?.id === 'string' || typeof attrs?.id === 'number') out.push(String(attrs.id));
+  } else if (obj.type === 'hardBreak' || obj.type === 'softBreak') {
+    out.push('\n');
   }
   if (Array.isArray(obj.content)) {
-    for (const child of obj.content) walkText(child as JsonValue, out);
+    for (const child of obj.content) collectInline(child as JsonValue, out);
   }
+}
+
+interface BodyBlock {
+  type: string;
+  text: string;
+}
+
+function collectBlocks(body: JsonValue | null | undefined): BodyBlock[] {
+  const out: BodyBlock[] = [];
+  const walk = (node: JsonValue | null | undefined) => {
+    if (!node || typeof node !== 'object' || Array.isArray(node)) return;
+    const obj = node as Record<string, unknown>;
+    const type = typeof obj.type === 'string' ? obj.type : '';
+    if (type === 'paragraph' || type === 'heading' || type === 'blockquote' || type === 'codeBlock') {
+      const parts: string[] = [];
+      collectInline(obj.content as JsonValue, parts);
+      const text = parts.join('').trim();
+      if (text) out.push({ type, text });
+    } else if (Array.isArray(obj.content)) {
+      for (const child of obj.content) walk(child as JsonValue);
+    }
+  };
+  walk(body);
+  return out;
 }
 
 function ActionLines({ lines }: { lines: string[] | null | undefined }) {
@@ -63,34 +90,37 @@ function ScriptBlockView({ script }: { script: unknown }) {
 }
 
 function BodyText({ body }: { body: JsonValue | null }) {
-  const lines: string[] = [];
-  walkText(body, lines);
-  if (lines.length === 0) return <p className="muted">(no body)</p>;
+  const blocks = collectBlocks(body);
+  if (blocks.length === 0) return <p className="muted">(no body)</p>;
   return (
     <div className="reader-body">
-      {lines.map((l, i) => (
-        <p key={i}>{l}</p>
-      ))}
+      {blocks.map((b, i) =>
+        b.type === 'heading' ? (
+          <p key={i} className="reader-head">
+            <strong>{b.text}</strong>
+          </p>
+        ) : (
+          <p key={i}>{b.text}</p>
+        ),
+      )}
     </div>
   );
 }
 
 export default function ReaderView({ story, canWrite }: ReaderViewProps) {
-  const [releases, setReleases] = useState<Release[] | null>(null);
+  const [latest, setLatest] = useState<Release | null>(null);
   const [message, setMessage] = useState<string | null>(null);
 
   const load = useCallback(() => {
     api
-      .releases(story.id)
-      .then(setReleases)
+      .releaseLatest(story.id)
+      .then(setLatest)
       .catch((e) => setMessage(e.message));
   }, [story.id]);
 
   useEffect(() => {
     load();
   }, [load]);
-
-  const latest = releases?.[0] ?? null;
 
   return (
     <div className="page reader">

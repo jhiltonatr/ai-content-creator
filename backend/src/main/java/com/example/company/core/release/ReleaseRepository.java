@@ -30,6 +30,13 @@ public class ReleaseRepository {
                 .list();
     }
 
+    public Optional<ReleaseRecord> latest(long storyId) {
+        return jdbc.sql("SELECT " + COLUMNS + " FROM releases WHERE story_id = :storyId ORDER BY version DESC LIMIT 1")
+                .param("storyId", storyId)
+                .query(this::map)
+                .optional();
+    }
+
     public Optional<ReleaseRecord> findById(long storyId, long id) {
         return jdbc.sql("SELECT " + COLUMNS + " FROM releases WHERE id = :id AND story_id = :storyId")
                 .param("id", id)
