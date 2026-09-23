@@ -20,6 +20,7 @@ import {
 import { demotePastedSlice, guardText, normalizeContent, type TipTapDoc } from '../lib/tiptap';
 import { useAiAnalysis } from '../hooks/useAiAnalysis';
 import { mentionRenderer } from './MentionList';
+import { AI_TOGGLE_EVENT, emitAiState } from '../lib/aiBridge';
 
 export type { TipTapDoc } from '../lib/tiptap';
 
@@ -115,6 +116,12 @@ export default function RichEditor({
   const analysis = useAiAnalysis({ editor, editorRef, mentionsRef, storyId, nodeId });
 
   useEffect(() => {
+    const onAiToggle = () => analysis.toggleAi();
+    window.addEventListener(AI_TOGGLE_EVENT, onAiToggle);
+    return () => window.removeEventListener(AI_TOGGLE_EVENT, onAiToggle);
+  }, [analysis.toggleAi]);
+
+  useEffect(() => {
     editorRef.current = editor ?? null;
   }, [editor]);
 
@@ -167,6 +174,10 @@ export default function RichEditor({
   }, [editor, analysis.scheduleAnalysis]);
 
   const { aiOn, findings, analyzing } = analysis;
+
+  useEffect(() => {
+    emitAiState({ on: aiOn, findings: findings.length });
+  }, [aiOn, findings]);
 
   const menu = editor ? (
     <div className="menu">

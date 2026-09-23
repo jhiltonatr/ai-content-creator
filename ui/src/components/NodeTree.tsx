@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { api } from '../api/client';
 import type { NodeKind, NodeSummary, StoryType } from '../api/types';
+import { childKinds } from '../lib/archetypes';
 
 interface NodeTreeProps {
   nodes: NodeSummary[];
@@ -11,18 +12,6 @@ interface NodeTreeProps {
   canWrite: boolean;
   onChanged: () => void;
 }
-
-const CHILD_KINDS: Record<StoryType, Partial<Record<NodeKind, NodeKind[]>>> = {
-  NOVEL: { BOOK: ['CHAPTER'], CHAPTER: ['SCENE'] },
-  RPG: { ACT: ['QUEST'], QUEST: ['SUBQUEST'], SUBQUEST: ['STEP'] },
-  SCRIPT: { EPISODE: ['SCENE'], ACT: ['SCENE'] },
-};
-
-const ITEM_KINDS: Record<StoryType, NodeKind[]> = {
-  NOVEL: ['BOOK', 'CHAPTER', 'SCENE'],
-  RPG: ['ACT', 'QUEST', 'SUBQUEST', 'STEP'],
-  SCRIPT: ['EPISODE', 'ACT', 'SCENE'],
-};
 
 function AllowedChildren({ storyType, node, storyId, onChanged }: {
   storyType: StoryType;
@@ -36,7 +25,7 @@ function AllowedChildren({ storyType, node, storyId, onChanged }: {
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
 
-  const kinds = CHILD_KINDS[storyType][node.kind] ?? ITEM_KINDS[storyType];
+  const kinds = childKinds(storyType, node.kind);
 
   const add = async () => {
     if (!kind || !title.trim()) return;

@@ -1,14 +1,9 @@
 import { useCallback, useEffect, useState } from 'react';
 import { api } from '../api/client';
-import type { NodeKind, NodeSummary, Role, Story, StoryType } from '../api/types';
+import type { NodeKind, NodeSummary, Role, Story } from '../api/types';
+import { ROOT_KINDS } from '../lib/archetypes';
 import { PANEL_TABS, type PanelTab } from '../lib/panels';
 import { useBooleanPref, useStringPref } from './useLocalStoragePref';
-
-const ROOT_KINDS: Record<StoryType, NodeKind[]> = {
-  NOVEL: ['BOOK'],
-  RPG: ['ACT'],
-  SCRIPT: ['EPISODE'],
-};
 
 export function useWorkspace({ storyId, myRole }: { storyId: number; myRole: Role | null }) {
   const canWrite = myRole === 'OWNER' || myRole === 'COLLABORATOR';
